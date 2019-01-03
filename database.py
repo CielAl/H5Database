@@ -55,7 +55,7 @@ class database(object):
 		self.patch_shape = kwargs['patch_shape']
 		self.stride_size = kwargs['stride_size']
 		
-		self.patch_pair_extractor = kwargs.get('extractor',self.default_generator)
+		self.patch_pair_extractor = kwargs.get('extractor')
 		self.pattern = kwargs.get('pattern','*.jpg')
 		self.interp = kwargs.get('interp',PIL.Image.NONE)
 		self.resize = kwargs.get('resize',0.5)
@@ -113,6 +113,7 @@ class database(object):
 		#for each phase create a pytable
 		self.tablename = {}
 		pytable = {}
+		patches = {}
 		for phase in self.phases.keys():			
 			#self.tablename[phase] = pytable_fullpath
 			pytable_fullpath,pytable_dir = self.generate_tablename(phase)
@@ -132,7 +133,7 @@ class database(object):
 				#img as label,
 				file = self.filelist[file_id]
 				
-				(patches[self.types[0]],patches[self.types[1]],isValid) = self.img_label_patches
+				(patches[self.types[0]],patches[self.types[1]],isValid) = self.img_label_patches(file)
 				
 				assert patches[self.types[0]].shape[0] == patches[self.types[1]].shape[0], str(patches[self.types[0]].shape)+','+str(patches[self.types[1]].shape)
 				
