@@ -35,7 +35,7 @@ class database(object):
 				
 				database_name: file name of the database
 				export_dir: location to write the table
-				patch_shape: Tuple. shape of the patch. Either (size,size,channel) or (size,size) in case of 1-channel images.
+				data_shape: Dict containing tuples. data_shape[type] is the shape of the patch (type as image or label) 
 				stride_size: overlapping of patches.
 			Optional:
 				pattern: wildcard pattern of the images. Default is *.jpg
@@ -52,7 +52,7 @@ class database(object):
 		self.database_name = kwargs['database_name']
 		self.export_dir = kwargs['export_dir']
 		
-		self.patch_shape = kwargs['patch_shape']
+		self.data_shape = kwargs['data_shape']
 		self.stride_size = kwargs['stride_size']
 		
 		self.patch_pair_extractor = kwargs.get('extractor')
@@ -107,7 +107,7 @@ class database(object):
 	# Tutorial from  https://github.com/jvanvugt/pytorch-unet
 	def write_data(self):
 		h5arrays = {}
-		debug = {}
+		datasize = {}
 		filters=tables.Filters(complevel= 5)
 	
 		#for each phase create a pytable
@@ -120,13 +120,13 @@ class database(object):
 			if not os.path.exists(pytable_dir):
 				os.makedirs(pytable_dir)
 			pytable[phase] = tables.open_file(pytable_fullpath, mode='w')
-			#debug[phase] = pytable
+			#datasize[phase] = pytable
 			h5arrays['filename'] = pytable[phase].create_earray(pytable[phase].root, 'filename', self.filenameAtom, (0,))
 
 			for type in self.types:
 				h5arrays[type]= pytable[phase].create_earray(pytable[phase].root, type, self.dtype,
-													  shape=np.append([0],self.patch_shape),
-													  chunkshape=np.append([1],self.patch_shape),
+													  shape=np.append([0],self.data_shape[type]),
+													  chunkshape=np.append([1],self.data_shape[type]),
 													  filters=filters)
 			#cv2.COLOR_BGR2RGB
 			for file_id in tqdm(self.phases[phase]):
@@ -140,12 +140,12 @@ class database(object):
 				if (isValid):
 					for type in self.types:
 						h5arrays[type].append(patches[type])
-						debug[type] = debug.get(type,0)+patches[type].shape[0]
+						datasize[type] = datasize.get(type,0)+patches[type].shape[0]
 
 			h5arrays["filename"].append([file for x in range(patches[self.types[0]].shape[0])])
 			for k,v in pytable.items():
 				v.close()
-		return debug
+		return datasize
 	
 	
 
