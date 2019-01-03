@@ -55,7 +55,7 @@ class database(object):
 		self.patch_shape = kwargs['patch_shape']
 		self.stride_size = kwargs['stride_size']
 		
-		
+		self.patch_pair_extractor = kwargs.get('extractor',self.default_generator)
 		self.pattern = kwargs.get('pattern','*.jpg')
 		self.interp = kwargs.get('interp',PIL.Image.NONE)
 		self.resize = kwargs.get('resize',0.5)
@@ -65,33 +65,40 @@ class database(object):
 		
 		self.filenameAtom = tables.StringAtom(itemsize=255)
 
-		self.filelist = self.get_filelist()
+		self.filelist = kwargs.get('filelist',self.get_filelist())
 		#for now just take 1 set of train-val shuffle. Leave the n_splits here for future use.
-		self.phases = self.init_split()
+		self.phases = kwargs.get('split',self.init_split())
+		self.meta = kwargs.get('meta',{})
 		self.types = ['img','label']
 
+	'''
+		Get the list of files by the pattern and location, if not specified by user.
+	'''
 	def get_filelist(self):
 		file_pattern = os.path.join(self.filedir,self.pattern)
 		files=glob.glob(file_pattern)
 		return files
-
+	'''
+		Initialize the data split and shuffle.
+	'''
 	def init_split(self):
 		phases = {}
 		phases['train'],phases['val'] = next(iter(model_selection.ShuffleSplit(n_splits=10,test_size=self.test_ratio).split(self.filelist)))
 		return phases
 
-	def img_label_pair(self,file):
-		img = cv2.imread(file,cv2.COLOR_BGR2RGB)
-		img_down = cv2.resize(img,(0,0),fx=self.resize,fy=self.resize, interpolation=self.interp)
-		#the shape is (y,x) while cv2.resize requires (x,y)
-		img_down = cv2.resize(img_down,(img.shape[1],img.shape[0]),interpolation=self.interp)
-		return img,img_down
 
-	def generate_patch(self,image):
-		patches_label= extract_patches(image,self.patch_shape,self.stride_size)
-		patches_label = patches_label.reshape((-1,)+self.patch_shape)
-		return patches_label
 	
+	'''
+		Read the file and return (img,label,success).
+		Invoke the patch_pair_extractor, which is a function handle. So "self" must be explicitly passed to 
+		the inputs.
+	'''
+	def img_label_patches(self,file):
+		return self.patch_pair_extractor(self,file)
+	
+	'''
+		Generate the Table name from database name.
+	'''
 	def generate_tablename(self,phase):
 		pytable_dir = os.path.join(self.export_dir)
 		pytable_fullpath = os.path.join(pytable_dir,"%s_%s%s" %(self.database_name,phase,'.pytable'))
@@ -102,14 +109,11 @@ class database(object):
 		h5arrays = {}
 		debug = {}
 		filters=tables.Filters(complevel= 5)
-		types = self.types
+	
 		#for each phase create a pytable
 		self.tablename = {}
 		pytable = {}
-		for phase in self.phases.keys():
-			#export dir  -- use normal formatted string so it can be run on python3.6
-			#pytable_dir = os.path.join(self.export_dir)
-			#pytable_fullpath = os.path.join(pytable_dir,"%s_%s%s" %(self.database_name,phase,'.pytable'))
+		for phase in self.phases.keys():			
 			#self.tablename[phase] = pytable_fullpath
 			pytable_fullpath,pytable_dir = self.generate_tablename(phase)
 			if not os.path.exists(pytable_dir):
@@ -118,39 +122,41 @@ class database(object):
 			#debug[phase] = pytable
 			h5arrays['filename'] = pytable[phase].create_earray(pytable[phase].root, 'filename', self.filenameAtom, (0,))
 
-			for type in types:
+			for type in self.types:
 				h5arrays[type]= pytable[phase].create_earray(pytable[phase].root, type, self.dtype,
 													  shape=np.append([0],self.patch_shape),
 													  chunkshape=np.append([1],self.patch_shape),
 													  filters=filters)
-
-			#
 			#cv2.COLOR_BGR2RGB
 			for file_id in tqdm(self.phases[phase]):
 				#img as label,
 				file = self.filelist[file_id]
 				
-				img_truth,img_down = self.img_label_pair(file)
+				(patches[self.types[0]],patches[self.types[1]],isValid) = self.img_label_patches
+				
+				assert patches[self.types[0]].shape[0] == patches[self.types[1]].shape[0], str(patches[self.types[0]].shape)+','+str(patches[self.types[1]].shape)
+				
+				if (isValid):
+					for type in self.types:
+						h5arrays[type].append(patches[type])
+						debug[type] = debug.get(type,0)+patches[type].shape[0]
 
-				patches = {}
-				patches[types[0]] = self.generate_patch(img_down)
-				patches[types[1]] = self.generate_patch(img_truth)
-				if patches[types[0]].shape[0]!= patches[types[1]].shape[0]:
-					print(patches[types[0]].shape)
-					print(patches[types[1]].shape)
-					raise Exception(file)
-				for type in types:
-					h5arrays[type].append(patches[type])
-					debug[type] = debug.get(type,0)+patches[type].shape[0]
-
-			h5arrays["filename"].append([file for x in range(patches[types[0]].shape[0])])
+			h5arrays["filename"].append([file for x in range(patches[self.types[0]].shape[0])])
 			for k,v in pytable.items():
 				v.close()
 		return debug
+	
+	
+
+	'''
+		Return false if no hdf5 found on the export path.
+	'''	
 	def is_instantiated(self,phase):
 		file_path = self.generate_tablename(phase)[0]
 		return os.path.exists(file_path)
-	
+	'''
+		non-overridable
+	'''	
 	def initialize(self):
 		if (not self.is_instantiated('train')) or (not self.is_instantiated('val')):
 			self.write_data()
