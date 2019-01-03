@@ -20,3 +20,21 @@ def extractor_super_resolution(obj,file):
 	image = generate_patch(obj,img_down,'img')
 	label = generate_patch(obj,img_truth,'label')
 	return (image,label,True)
+
+	
+
+	
+#############
+
+
+
+
+
+
+def extractor_melanoma(obj,file):
+	classname = ["BCC", "SCC"]
+	image_whole = cv2.cvtColor(cv2.imread(fname),cv2.COLOR_BGR2RGB)
+	image_whole = cv2.resize(image_whole,(0,0),fx=obj.resize,fy=obj.resize, interpolation=PIL.Image.NONE)
+	data_image  = generate_patch(obj,image_whole,type = 'img')
+	data_label = [classid for x in range(data_image.shape[0])]
+	return (image,label,True)

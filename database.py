@@ -48,7 +48,7 @@ class database(object):
 	'''
 	def __init__(self,**kwargs):
 		self.filedir = kwargs['filedir']
-		
+		self.maskdir = kwargs.get('maskdir',None)
 		self.database_name = kwargs['database_name']
 		self.export_dir = kwargs['export_dir']
 		
@@ -62,6 +62,8 @@ class database(object):
 		self.dtype =  kwargs.get('dtype',tables.UInt8Atom())
 		self.test_ratio = kwargs.get('test_ratio',0.1)
 		
+		self.enable_weight = kwargs.get('classweight',False)
+		self.class_names = kwargs.get('classnames',None)
 		
 		self.filenameAtom = tables.StringAtom(itemsize=255)
 
@@ -89,7 +91,7 @@ class database(object):
 
 	
 	'''
-		Read the file and return (img,label,success).
+		Read the file and return (img,label,success,meta).
 		Invoke the patch_pair_extractor, which is a function handle. So "self" must be explicitly passed to 
 		the inputs.
 	'''
@@ -114,6 +116,7 @@ class database(object):
 		self.tablename = {}
 		pytable = {}
 		patches = {}
+		totals = np.zeros(len(self.class_names))
 		for phase in self.phases.keys():			
 			#self.tablename[phase] = pytable_fullpath
 			pytable_fullpath,pytable_dir = self.generate_tablename(phase)
@@ -141,8 +144,16 @@ class database(object):
 					for type in self.types:
 						h5arrays[type].append(patches[type])
 						datasize[type] = datasize.get(type,0)+patches[type].shape[0]
-
+				if self.enable_weight and self.class_names is not None:
+					classid=[idx for idx in range(len(obj.class_names)) if obj.class_names[idx] in file][0]
+					totals[classid]+=1
+			
 			h5arrays["filename"].append([file for x in range(patches[self.types[0]].shape[0])])
+			
+			if self.enable_weight:
+				npixels=hdf5_file.create_carray(pytable[phase].root, 'classsizes', tables.Atom.from_dtype(totals.dtype), totals.shape)
+				npixels[:]=totals
+			
 			for k,v in pytable.items():
 				v.close()
 		return datasize
