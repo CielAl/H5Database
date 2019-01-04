@@ -158,11 +158,12 @@ class database(object):
 				if self.enable_weight and self.class_names is not None:
 					classid=[idx for idx in range(len(self.class_names)) if self.class_names[idx] in file][0]
 					totals[classid]+=1
+
 			if patches:
 				filename_list = [file for x in range(patches[self.types[0]].shape[0])]
 				if filename_list:
 					h5arrays["filename"].append(filename_list)
-			
+
 			if self.enable_weight:
 				npixels=pytable[phase].create_carray(pytable[phase].root, 'classsizes', tables.Atom.from_dtype(totals.dtype), totals.shape)
 				npixels[:]=totals
