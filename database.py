@@ -106,7 +106,12 @@ class database(object):
 		pytable_dir = os.path.join(self.export_dir)
 		pytable_fullpath = os.path.join(pytable_dir,"%s_%s%s" %(self.database_name,phase,'.pytable'))
 		return pytable_fullpath,pytable_dir
-		
+	
+	
+	def _get_chunk_shape(self,type):
+		if np.count_nonzero(self.data_shape[type])!=0:
+			return np.append([1],self.data_shape[type])
+		return [1]
 	# Tutorial from  https://github.com/jvanvugt/pytorch-unet
 	def write_data(self):
 		h5arrays = {}
@@ -130,7 +135,7 @@ class database(object):
 			for type in self.types:
 				h5arrays[type]= pytable[phase].create_earray(pytable[phase].root, type, self.dtype,
 													  shape=np.append([0],self.data_shape[type]),
-													  chunkshape=np.append([1],self.data_shape[type]),
+													  chunkshape= self._get_chunk_shape(type),#np.append([1],self.data_shape[type]),
 													  filters=filters)
 			#cv2.COLOR_BGR2RGB
 			for file_id in tqdm(self.phases[phase]):
