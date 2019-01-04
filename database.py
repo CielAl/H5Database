@@ -139,7 +139,6 @@ class database(object):
 				
 				(patches[self.types[0]],patches[self.types[1]],isValid) = self.img_label_patches(file)
 				
-				assert patches[self.types[0]].shape[0] == patches[self.types[1]].shape[0], str(patches[self.types[0]].shape)+','+str(patches[self.types[1]].shape)
 				
 				if (isValid):
 					for type in self.types:
