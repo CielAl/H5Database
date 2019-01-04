@@ -61,6 +61,11 @@ def extractor_patch_classification(obj,file):
 	classid=[idx for idx in range(len(obj.class_names)) if obj.class_names[idx] in file][0]
 	image_whole = cv2.cvtColor(cv2.imread(file),cv2.COLOR_BGR2RGB)
 	image_whole = cv2.resize(image_whole,(0,0),fx=obj.resize,fy=obj.resize, interpolation=PIL.Image.NONE)
+	
+	#discard patches that are too small - mistakes of annotations?
+	if image_whole.shape[0]<obj.data_shape['img'][0] or image_whole.shape[1]<obj.data_shape['img'][1]:
+		return (None,None,False)
+	
 	#make background pixel strictly 0
 	image_whole_sanitized = background_sanitize(image_whole)
 	data_image_sanitized  = generate_patch(obj,image_whole_sanitized,type = 'img')
