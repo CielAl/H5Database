@@ -153,7 +153,7 @@ class database(object):
 				if (isValid):
 					for type in self.types:
 						h5arrays[type].append(patches[type])
-						datasize[type] = datasize.get(type,0)+patches[type].shape[0]
+						datasize[type] = datasize.get(type,0)+np.asarray(patches[type]).shape[0]
 				if self.enable_weight and self.class_names is not None:
 					classid=[idx for idx in range(len(obj.class_names)) if obj.class_names[idx] in file][0]
 					totals[classid]+=1
