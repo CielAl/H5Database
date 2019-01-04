@@ -43,7 +43,7 @@ def getBackground(img_gray,params = {}):
 
 
 def qualification_no_background_helper(patch,tissue_threshold_ratio):
-	return (not patch.size()<=0) and (np.count_nonzero(patch)/patch.size()>=(tissue_threshold_ratio) )
+	return (not patch.size<=0) and (np.count_nonzero(patch)/patch.size>=(tissue_threshold_ratio) )
 
 def patch_qualification(patch_sanitized,tissue_threshold_ratio = 0.95):
 	idx_qualified = []
