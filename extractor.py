@@ -6,6 +6,7 @@ import numpy as np
 
 
 import PIL
+import skimage
 
 def srcnn_img_label_pair(obj,file):
 	img = cv2.imread(file,cv2.COLOR_BGR2RGB)
