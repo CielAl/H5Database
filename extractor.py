@@ -55,7 +55,7 @@ def background_sanitize(image,params={}):
 	return image
 def extractor_patch_classification(obj,file):
 	classid=[idx for idx in range(len(obj.class_names)) if obj.class_names[idx] in file][0]
-	image_whole = cv2.cvtColor(cv2.imread(fname),cv2.COLOR_BGR2RGB)
+	image_whole = cv2.cvtColor(cv2.imread(file),cv2.COLOR_BGR2RGB)
 	image_whole = cv2.resize(image_whole,(0,0),fx=obj.resize,fy=obj.resize, interpolation=PIL.Image.NONE)
 	#make background pixel strictly 0
 	image_whole_sanitized = background_sanitize(image_whole)
