@@ -2,6 +2,7 @@ from sklearn import model_selection
 from sklearn.feature_extraction.image import extract_patches
 import cv2
 from skimage.color import rgb2gray
+import numpy as np 
 
 def srcnn_img_label_pair(obj,file):
 	img = cv2.imread(file,cv2.COLOR_BGR2RGB)
@@ -37,14 +38,14 @@ def getBackground(img_gray,params = {}):
 	return background,mask
 
 
-def qualification_no_background_helper(patch,threshold_ratio):
-	return (not patch.size()<=0) and (patch.sum()/patch.size()>=threshold_ratio)
+def qualification_no_background_helper(patch,tissue_threshold_ratio):
+	return (not patch.size()<=0) and (np.count_nonzero(patch)/patch.size()<=(1-tissue_threshold_ratio) )
 
-def patch_qualification(patch_sanitized,threshold_ratio = 0.95):
+def patch_qualification(patch_sanitized,tissue_threshold_ratio = 0.95):
 	idx_qualified = []
 	for (idx,patch) in enumerate(patch_sanitized):
 		#patch with 95%(default) non-zero pixels - add idx to patch candididates
-		if qualification_no_background_helper(patch,threshold_ratio):
+		if qualification_no_background_helper(patch,tissue_threshold_ratio):
 			idx_qualified.append(idx)
 	return patch_sanitized[idx_qualified]
 def background_sanitize(image,params={}):
@@ -60,6 +61,6 @@ def extractor_patch_classification(obj,file):
 	image_whole_sanitized = background_sanitize(image_whole)
 	data_image_sanitized  = generate_patch(obj,image_whole_sanitized,type = 'img')
 	
-	data_image_qualified= patch_qualification(data_image_sanitized,obj.tissue_area_thresh)
+	data_image_qualified= patch_qualification(data_image_sanitized,obj.tissue_area_thresh) 
 	data_label = [classid for x in range(data_image_qualified.shape[0])]
 	return (image,label,True)
