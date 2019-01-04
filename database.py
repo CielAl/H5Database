@@ -137,7 +137,7 @@ class database(object):
 			h5arrays['filename'] = pytable[phase].create_earray(pytable[phase].root, 'filename', self.filenameAtom, (0,))
 
 			for type in self.types:
-				h5_shape,chunk_shape = self._get_chunk_shape(type)
+				h5_shape,chunk_shape = self._get_h5_shapes(type)
 				h5arrays[type]= pytable[phase].create_earray(pytable[phase].root, type, self.dtype,
 													  shape= h5_shape, #np.append([0],self.data_shape[type]),
 													  chunkshape= chunk_shape,#np.append([1],self.data_shape[type]),
