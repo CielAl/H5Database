@@ -55,6 +55,7 @@ class database(object):
 		self.data_shape = kwargs['data_shape']
 		self.stride_size = kwargs['stride_size']
 		
+		self.tissue_area_thresh = kwargs.get('tissue_ratio',0.95)
 		self.patch_pair_extractor = kwargs.get('extractor')
 		self.pattern = kwargs.get('pattern','*.jpg')
 		self.interp = kwargs.get('interp',PIL.Image.NONE)
