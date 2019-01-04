@@ -161,7 +161,7 @@ class database(object):
 			h5arrays["filename"].append([file for x in range(patches[self.types[0]].shape[0])])
 			
 			if self.enable_weight:
-				npixels=hdf5_file.create_carray(pytable[phase].root, 'classsizes', tables.Atom.from_dtype(totals.dtype), totals.shape)
+				npixels=pytable[phase].create_carray(pytable[phase].root, 'classsizes', tables.Atom.from_dtype(totals.dtype), totals.shape)
 				npixels[:]=totals
 			
 			for k,v in pytable.items():
