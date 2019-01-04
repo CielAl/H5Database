@@ -4,6 +4,9 @@ import cv2
 from skimage.color import rgb2gray
 import numpy as np 
 
+
+import PIL
+
 def srcnn_img_label_pair(obj,file):
 	img = cv2.imread(file,cv2.COLOR_BGR2RGB)
 	img_down = cv2.resize(img,(0,0),fx=obj.resize,fy=obj.resize, interpolation=obj.interp)
