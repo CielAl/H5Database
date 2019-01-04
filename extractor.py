@@ -67,4 +67,4 @@ def extractor_patch_classification(obj,file):
 	
 	data_image_qualified= patch_qualification(data_image_sanitized,obj.tissue_area_thresh) 
 	data_label = [classid for x in range(data_image_qualified.shape[0])]
-	return (image,label,True)
+	return (data_image_qualified,data_label,True)
