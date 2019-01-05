@@ -55,6 +55,9 @@ class database(object):
 		self.data_shape = kwargs['data_shape']
 		self.stride_size = kwargs['stride_size']
 		
+		
+		self.numsplit = kwargs.get('numfold',10)
+		
 		self.tissue_area_thresh = kwargs.get('tissue_ratio',0.95)
 		self.patch_pair_extractor = kwargs.get('extractor')
 		self.pattern = kwargs.get('pattern','*.jpg')
@@ -81,12 +84,16 @@ class database(object):
 		file_pattern = os.path.join(self.filedir,self.pattern)
 		files=glob.glob(file_pattern)
 		return files
+	
+	def kfold_split(self):
+		return iter(model_selection.ShuffleSplit(n_splits=self.numsplit,test_size=self.test_ratio).split(self.filelist))
+	
 	'''
 		Initialize the data split and shuffle.
 	'''
 	def init_split(self):
 		phases = {}
-		phases['train'],phases['val'] = next(iter(model_selection.ShuffleSplit(n_splits=10,test_size=self.test_ratio).split(self.filelist)))
+		phases['train'],phases['val'] = next(self.kfold_split())
 		return phases
 
 
@@ -217,3 +224,22 @@ class database(object):
 	def peek(self,phase):
 		with tables.open_file(self.generate_tablename(phase)[0],'r') as pytable:
 			return pytable.root.img.shape,pytable.root.label.shape
+	
+
+class kfold(object):	
+
+
+	def __init__(self,kwargs):
+		self.numfold = kwargs.get('numfold',10)
+		kwargs.set('numfold',self.numfold)
+		self.rootdir = kwargs['export_dir']
+		self.data_set = dataset(**kwargs) #init dataset object
+		self.split = list(self.data_set.kfold_split())
+
+	def run():
+		for fold in range(self.numfold):
+			#redifine split
+			self.data_set.export_dir = os.path.join(self.rootdir,self.split)
+			self.data_set.phases['train'],self.data_set.phases['val'] = split[fold]
+			self.data_set.write_data()
+	
