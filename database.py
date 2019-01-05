@@ -125,10 +125,10 @@ class database(object):
 		#for each phase create a pytable
 		self.tablename = {}
 		pytable = {}
-		patches = {}
+		
 		totals = np.zeros(len(self.class_names))
 		for phase in self.phases.keys():			
-			
+			patches = {}
 			#self.tablename[phase] = pytable_fullpath
 			pytable_fullpath,pytable_dir = self.generate_tablename(phase)
 			if not os.path.exists(pytable_dir):
@@ -158,18 +158,26 @@ class database(object):
 				if self.enable_weight and self.class_names is not None:
 					classid=[idx for idx in range(len(self.class_names)) if self.class_names[idx] in file][0]
 					totals[classid]+=1
-
-			if patches:
-				filename_list = [file for x in range(patches[self.types[0]].shape[0])]
-				if filename_list:
-					h5arrays["filename"].append(filename_list)
-
+				#
+				if patches:
+					filename_list = [file for x in range(patches[self.types[0]].shape[0])]
+					#tqdm.write(str(filename_list))
+					if filename_list:
+						h5arrays["filename"].append(filename_list)
+					else:
+						#do nothing. leave it here for tests
+						pass
+				else:
+					pass
+					#tqdm.write(str(file))
+					
 			if self.enable_weight:
 				npixels=pytable[phase].create_carray(pytable[phase].root, 'classsizes', tables.Atom.from_dtype(totals.dtype), totals.shape)
 				npixels[:]=totals
 			
 			for k,v in pytable.items():
 				v.close()
+			
 		return datasize
 	
 	
