@@ -166,7 +166,9 @@ class database(object):
 					classid=[idx for idx in range(len(self.class_names)) if self.class_names[idx] in file][0]
 					totals[classid]+=1
 				#
-				if patches:
+				#tqdm.write(patches)
+				#tqdm.write(str( patches.values()))
+				if patches and  (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None):
 					filename_list = [file for x in range(patches[self.types[0]].shape[0])]
 					#tqdm.write(str(filename_list))
 					if filename_list:
@@ -229,17 +231,17 @@ class database(object):
 class kfold(object):	
 
 
-	def __init__(self,kwargs):
+	def __init__(self,**kwargs):
 		self.numfold = kwargs.get('numfold',10)
-		kwargs.set('numfold',self.numfold)
+		kwargs['numfold'] = self.numfold
 		self.rootdir = kwargs['export_dir']
-		self.data_set = dataset(**kwargs) #init dataset object
+		self.data_set = database(**kwargs) #init dataset object
 		self.split = list(self.data_set.kfold_split())
 
-	def run():
+	def run(self):
 		for fold in range(self.numfold):
 			#redifine split
-			self.data_set.export_dir = os.path.join(self.rootdir,self.split)
-			self.data_set.phases['train'],self.data_set.phases['val'] = split[fold]
+			self.data_set.export_dir = os.path.join(self.rootdir,str(fold))
+			self.data_set.phases['train'],self.data_set.phases['val'] = self.split[fold]
 			self.data_set.write_data()
 	
