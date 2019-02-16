@@ -51,6 +51,7 @@ class database(object):
 		self.maskdir = kwargs.get('maskdir',None)
 		self.database_name = kwargs['database_name']
 		self.export_dir = kwargs['export_dir']
+		self.shuffle = kwargs.get('shuffle',True)
 		
 		self.data_shape = kwargs['data_shape']
 		self.stride_size = kwargs['stride_size']
@@ -86,7 +87,7 @@ class database(object):
 		return files
 	
 	def kfold_split(self):
-		return iter(model_selection.ShuffleSplit(n_splits=self.numsplit,test_size=self.test_ratio).split(self.filelist))
+		return iter(model_selection.KFold(n_splits=self.numsplit,shuffle = self.shuffle).split(self.filelist))
 	
 	'''
 		Initialize the data split and shuffle.
