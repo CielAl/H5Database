@@ -51,14 +51,13 @@ class database(object):
 		self.maskdir = kwargs.get('maskdir',None)
 		self.database_name = kwargs['database_name']
 		self.export_dir = kwargs['export_dir']
-		self.shuffle = kwargs.get('shuffle',True)
 		
 		self.data_shape = kwargs['data_shape']
 		self.stride_size = kwargs['stride_size']
 		
 		
 		self.numsplit = kwargs.get('numfold',10)
-		
+		self.shuffle = kwargs.get('shuffle',True)
 		self.tissue_area_thresh = kwargs.get('tissue_ratio',0.95)
 		self.patch_pair_extractor = kwargs.get('extractor')
 		self.pattern = kwargs.get('pattern','*.jpg')
@@ -234,7 +233,9 @@ class kfold(object):
 
 	def __init__(self,**kwargs):
 		self.numfold = kwargs.get('numfold',10)
+		self.shuffle = kwargs.get('shuffle',True)
 		kwargs['numfold'] = self.numfold
+		kwargs['shuffle'] = self.shuffle
 		self.rootdir = kwargs['export_dir']
 		self.data_set = database(**kwargs) #init dataset object
 		self.split = list(self.data_set.kfold_split())
