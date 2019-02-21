@@ -23,7 +23,8 @@ import random
 from tqdm import tqdm
 from types import SimpleNamespace
 
-
+_TRAIN_NAME = 'train'
+_VAL_NAME  = 'val'
 class database(object):
 
 
@@ -93,7 +94,7 @@ class database(object):
 	'''
 	def init_split(self):
 		phases = {}
-		phases['train'],phases['val'] = next(self.kfold_split())
+		phases[_TRAIN_NAME],phases[_VAL_NAME] = next(self.kfold_split())
 		return phases
 
 
@@ -201,7 +202,7 @@ class database(object):
 		non-overridable
 	'''	
 	def initialize(self):
-		if (not self.is_instantiated('train')) or (not self.is_instantiated('val')):
+		if (not self.is_instantiated(_TRAIN_NAME)) or (not self.is_instantiated(_VAL_NAME)):
 			self.write_data()
 			
 	'''
@@ -244,6 +245,6 @@ class kfold(object):
 		for fold in range(self.numfold):
 			#redifine split
 			self.data_set.export_dir = os.path.join(self.rootdir,str(fold))
-			self.data_set.phases['train'],self.data_set.phases['val'] = self.split[fold]
+			self.data_set.phases[_TRAIN_NAME],self.data_set.phases[_VAL_NAME] = self.split[fold]
 			self.data_set.write_data()
 	
