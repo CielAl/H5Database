@@ -126,9 +126,7 @@ class database(object):
 	
 	
 	
-	def count_weight(self,totals,file,img,label,extra_infomration):
-		#weight_counter_func is callback - manually pass self as its 1st arg
-		return self.weight_counter_func(self,totals,file,img,label,extra_infomration)
+
 	'''
 		Generate the Table name from database name.
 	'''
@@ -168,10 +166,6 @@ class database(object):
 			h5arrays[type].append(patches_dict[type])
 			datasize[type] = datasize.get(type,0)+np.asarray(patches_dict[type]).shape[0]
 	
-	def _write_classweight_to_db(self,pytable_dict,phase):
-		if self.is_count_weight():
-			npixels=pytable_dict[phase].create_carray(pytable_dict[phase].root, 'class_sizes', tables.Atom.from_dtype(self._totals.dtype), self._totals.shape)
-			npixels[:]=self._totals	
 
 
 	def _write_file_names_to_db(self,file,patches,h5arrays):
@@ -183,21 +177,9 @@ class database(object):
 				...#do nothing. leave it here for tests	
 			
 			
-	def _weight_accumulate(self,file,img,label,extra_infomration):
-		if self.is_count_weight():
-			self.count_weight(self._totals,
-							  file,
-							  img,
-							  label,
-							  extra_inforamtion)	
-	
-	def _new_weight_storage(self):
-		if self.is_count_weight():
-			totals = np.zeros(len(self.classes))
-		else:
-			totals = None
-		return totals
+
 	# Tutorial from  https://github.com/jvanvugt/pytorch-unet
+	
 	def write_data(self):
 		h5arrays = {}
 		datasize = {}
@@ -207,7 +189,10 @@ class database(object):
 		self.tablename = {}
 		pytable = {}
 		
-		self._totals = self._new_weight_storage()
+		#self._totals = self._new_weight_storage()
+		
+		self.weight_writer = self.WeightCollector(self, weight_counter = self.weight_counter_func)
+		
 		for phase in self.phases.keys():			
 			patches = {}
 			pytable_fullpath,pytable_dir = self.generate_tablename(phase)
@@ -226,17 +211,16 @@ class database(object):
 
 					if (isValid):
 						self._write_data_to_db(patches,h5arrays,datasize)
-						self._weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_inforamtion)
+						self.weight_writer._weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_inforamtion)
 						self._write_file_names_to_db(file,patches,h5arrays)
 					else:
 						#do nothing. leave it blank here for: (1) test. (2) future works
 						...
-				self._write_classweight_to_db(pytable,phase)		
+				self.weight_writer._write_classweight_to_db(pytable,phase)		
 		return datasize
 	
 	
-	def is_count_weight(self):
-		return self.enable_weight and self.classes is not None
+
 	'''
 		Return false if no hdf5 found on the export path.
 	'''	
@@ -268,12 +252,51 @@ class database(object):
 	def size(self,phase):
 		with tables.open_file(self.generate_tablename(phase)[0],'r') as pytable:
 			return getattr(pytable.root,self.types[0]).shape[0]
-	
+
+	def __len__(self):
+		return sum([self.size(phase) for phase in self.phases.keys()])
+		
 	def peek(self,phase):
 		with tables.open_file(self.generate_tablename(phase)[0],'r') as pytable:
 			return (getattr(pytable.root,self.types[0]).shape,
 			getattr(pytable.root,self.types[1]).shape)
-	
+			
+	'''
+		Weight.
+	'''	
+	class WeightCollector(object):
+		def __init__(self,database,**kwargs):
+			self.database = database
+			self.weight_counter_func = kwargs.get('weight_counter',self.database.weight_counter_func)
+			self._totals = self._new_weight_storage()
+			
+		def is_count_weight(self):
+			return self.database.enable_weight and self.database.classes is not None
+			
+		def _weight_accumulate(self,file,img,label,extra_infomration):
+			if self.is_count_weight():
+				self.count_weight(self.database._totals,
+								  file,
+								  img,
+								  label,
+								  extra_inforamtion)	
+		
+		def _new_weight_storage(self):
+			if self.is_count_weight():
+				totals = np.zeros(len(self.database.classes))
+			else:
+				totals = None
+			return totals		
+			
+		def _write_classweight_to_db(self,pytable_dict,phase):
+			if self.is_count_weight():
+				npixels=pytable_dict[phase].create_carray(pytable_dict[phase].root, 'class_sizes', tables.Atom.from_dtype(self.database._totals.dtype), self.database._totals.shape)
+				npixels[:]=self.database._totals	
+
+		def count_weight(self,totals,file,img,label,extra_infomration):
+			#weight_counter_func is callback - manually pass the associated database as its 1st arg
+			return self.weight_counter_func(self.database,totals,file,img,label,extra_infomration)
+
 
 class kfold(object):	
 
