@@ -48,6 +48,10 @@ class database(object):
 			KeyError if the mandatory inputs is missing
 	'''
 	def __init__(self,**kwargs):
+	
+		self.KEY_TRAIN = _TRAIN_NAME
+		self.KEY_VAL = _VAL_NAME
+		
 		self.filedir = kwargs['filedir']
 		self.maskdir = kwargs.get('maskdir',None)
 		self.database_name = kwargs['database_name']
