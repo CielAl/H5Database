@@ -146,6 +146,57 @@ class database(object):
 			chunk_shape  = [1]
 			h5_shape = [0]
 		return (h5_shape,chunk_shape)
+		
+		
+	
+	def _create_h5array_by_types(self,h5arrays,pytable_dict,phase,filters):
+		for type in self.types:
+			h5_shape,chunk_shape = self._get_h5_shapes(type)
+			h5arrays[type]= pytable_dict[phase].create_earray(pytable_dict[phase].root, type, self.dtype,
+												  shape= h5_shape, #np.append([0],self.data_shape[type]),
+												  chunkshape= chunk_shape,#np.append([1],self.data_shape[type]),
+												  filters=filters)
+	
+	@staticmethod
+	def prepare_export_directory(pytable_dir):
+			if not os.path.exists(pytable_dir):
+				os.makedirs(pytable_dir)	
+				
+				
+	def _write_data_to_db(self,patches_dict,h5arrays,datasize):
+		for type in self.types:
+			h5arrays[type].append(patches_dict[type])
+			datasize[type] = datasize.get(type,0)+np.asarray(patches_dict[type]).shape[0]
+	
+	def _write_classweight_to_db(self,pytable_dict,phase):
+		if self.is_count_weight():
+			npixels=pytable_dict[phase].create_carray(pytable_dict[phase].root, 'class_sizes', tables.Atom.from_dtype(self._totals.dtype), self._totals.shape)
+			npixels[:]=self._totals	
+
+
+	def _write_file_names_to_db(self,file,patches,h5arrays):
+		if patches and  (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None):
+			filename_list = [file for x in range(patches[self.types[0]].shape[0])]
+			if filename_list:
+				h5arrays["filename"].append(filename_list)
+			else:
+				...#do nothing. leave it here for tests	
+			
+			
+	def _weight_accumulate(self,file,img,label,extra_infomration):
+		if self.is_count_weight():
+			self.count_weight(self._totals,
+							  file,
+							  img,
+							  label,
+							  extra_inforamtion)	
+	
+	def _new_weight_storage(self):
+		if self.is_count_weight():
+			totals = np.zeros(len(self.classes))
+		else:
+			totals = None
+		return totals
 	# Tutorial from  https://github.com/jvanvugt/pytorch-unet
 	def write_data(self):
 		h5arrays = {}
@@ -156,67 +207,36 @@ class database(object):
 		self.tablename = {}
 		pytable = {}
 		
-		totals = np.zeros(len(self.classes))
+		self._totals = self._new_weight_storage()
 		for phase in self.phases.keys():			
 			patches = {}
-			#self.tablename[phase] = pytable_fullpath
 			pytable_fullpath,pytable_dir = self.generate_tablename(phase)
-			if not os.path.exists(pytable_dir):
-				os.makedirs(pytable_dir)
+			
+			type(self).prepare_export_directory(pytable_dir)
+			
 			pytable[phase] = tables.open_file(pytable_fullpath, mode='w')
-			#datasize[phase] = pytable
 			h5arrays['filename'] = pytable[phase].create_earray(pytable[phase].root, 'filename', self.filenameAtom, (0,))
 			with pytable[phase]:
-				for type in self.types:
-					h5_shape,chunk_shape = self._get_h5_shapes(type)
-					h5arrays[type]= pytable[phase].create_earray(pytable[phase].root, type, self.dtype,
-														  shape= h5_shape, #np.append([0],self.data_shape[type]),
-														  chunkshape= chunk_shape,#np.append([1],self.data_shape[type]),
-														  filters=filters)
-				#cv2.COLOR_BGR2RGB
+				self._create_h5array_by_types(h5arrays,pytable,phase,filters)
+
 				for file_id in tqdm(self.phases[phase]):
-					#img as label,
-					file = self.filelist[file_id]
-					
+
+					file = self.filelist[file_id]					
 					(patches[self.types[0]],patches[self.types[1]],isValid,extra_inforamtion) = self.img_label_patches(file)
-					
-					
+
 					if (isValid):
-						for type in self.types:
-							h5arrays[type].append(patches[type])
-							datasize[type] = datasize.get(type,0)+np.asarray(patches[type]).shape[0]
-						if self.enable_weight and self.classes is not None:
-							self.count_weight(totals,
-											  file,
-											  patches[self.types[0]],
-											  patches[self.types[1]],
-											  extra_inforamtion)
-					#
-					#tqdm.write(patches)
-					#tqdm.write(str( patches.values()))
-					if patches and  (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None):
-						filename_list = [file for x in range(patches[self.types[0]].shape[0])]
-						#tqdm.write(str(filename_list))
-						if filename_list:
-							h5arrays["filename"].append(filename_list)
-						else:
-							#do nothing. leave it here for tests
-							pass
+						self._write_data_to_db(patches,h5arrays,datasize)
+						self._weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_inforamtion)
+						self._write_file_names_to_db(file,patches,h5arrays)
 					else:
-						pass
-						#tqdm.write(str(file))
-						
-				if self.enable_weight:
-					npixels=pytable[phase].create_carray(pytable[phase].root, 'class_sizes', tables.Atom.from_dtype(totals.dtype), totals.shape)
-					npixels[:]=totals
-				
-				for k,v in pytable.items():
-					v.close()
-			
+						#do nothing. leave it blank here for: (1) test. (2) future works
+						...
+				self._write_classweight_to_db(pytable,phase)		
 		return datasize
 	
 	
-
+	def is_count_weight(self):
+		return self.enable_weight and self.classes is not None
 	'''
 		Return false if no hdf5 found on the export path.
 	'''	
@@ -251,8 +271,8 @@ class database(object):
 	
 	def peek(self,phase):
 		with tables.open_file(self.generate_tablename(phase)[0],'r') as pytable:
-			return getattr(pytable.root,self.types[0]).shape,
-					getattr(pytable.root,self.types[1]).shape
+			return (getattr(pytable.root,self.types[0]).shape,
+			getattr(pytable.root,self.types[1]).shape)
 	
 
 class kfold(object):	

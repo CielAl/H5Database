@@ -23,5 +23,5 @@ def weight_counter_filename(obj,totals,file,img,label,extra_infomration):
 
 def weight_counter_maskpixel(obj,totals,file,img,label,extra_infomration):
 	for i,key in enumerate(obj.classes):
-	totals[1,i]+=sum(sum(label[:,:,0]==key))
+		totals[1,i]+=sum(sum(label[:,:,0]==key))
 	return totals
