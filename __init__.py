@@ -20,8 +20,12 @@ import sklearn.feature_extraction.image
 from sklearn.feature_extraction.image import extract_patches
 import random
 
+from weight_counter import weight_counter_filename
+
 from tqdm import tqdm
 from types import SimpleNamespace
+
+from lazy_property import LazyProperty
 
 _TRAIN_NAME = 'train'
 _VAL_NAME  = 'val'
@@ -64,7 +68,10 @@ class database(object):
 		self.numsplit = kwargs.get('numfold',10)
 		self.shuffle = kwargs.get('shuffle',True)
 		self.tissue_area_thresh = kwargs.get('tissue_ratio',0.95)
-		self.patch_pair_extractor = kwargs.get('extractor')
+		self.patch_pair_extractor_func = kwargs.get('extractor')
+		
+		self.weight_counter_func = kwargs.get('weight_counter')
+		
 		self.pattern = kwargs.get('pattern','*.jpg')
 		self.interp = kwargs.get('interp',PIL.Image.NONE)
 		self.resize = kwargs.get('resize',0.5)
@@ -72,7 +79,7 @@ class database(object):
 		self.test_ratio = kwargs.get('test_ratio',0.1)
 		
 		self.enable_weight = kwargs.get('classweight',False)
-		self.class_names = kwargs.get('classnames',None)
+		self.classes = kwargs.get('classnames',None)
 		
 		self.filenameAtom = tables.StringAtom(itemsize=255)
 
@@ -80,8 +87,13 @@ class database(object):
 		#for now just take 1 set of train-val shuffle. Leave the n_splits here for future use.
 		self.phases = kwargs.get('split',self.init_split())
 		self.meta = kwargs.get('meta',{})
-		self.types = ['img','label']
 
+
+
+	@LazyProperty
+	def types(self):
+		return ['img','label']
+		
 	'''
 		Get the list of files by the pattern and location, if not specified by user.
 	'''
@@ -105,12 +117,18 @@ class database(object):
 	
 	'''
 		Read the file and return (img,label,success,meta).
-		Invoke the patch_pair_extractor, which is a function handle. So "self" must be explicitly passed to 
+		Invoke the patch_pair_extractor_func, which is a function handle. So "self" must be explicitly passed to 
 		the inputs.
 	'''
 	def img_label_patches(self,file):
-		return self.patch_pair_extractor(self,file)
+		#patch_pair_extractor_func is a callback: manually pass "self" as its 1st arg
+		return self.patch_pair_extractor_func(self,file)
 	
+	
+	
+	def count_weight(self,totals,file,img,label,extra_infomration):
+		#weight_counter_func is callback - manually pass self as its 1st arg
+		return self.weight_counter_func(self,totals,file,img,label,extra_infomration)
 	'''
 		Generate the Table name from database name.
 	'''
@@ -138,7 +156,7 @@ class database(object):
 		self.tablename = {}
 		pytable = {}
 		
-		totals = np.zeros(len(self.class_names))
+		totals = np.zeros(len(self.classes))
 		for phase in self.phases.keys():			
 			patches = {}
 			#self.tablename[phase] = pytable_fullpath
@@ -148,49 +166,52 @@ class database(object):
 			pytable[phase] = tables.open_file(pytable_fullpath, mode='w')
 			#datasize[phase] = pytable
 			h5arrays['filename'] = pytable[phase].create_earray(pytable[phase].root, 'filename', self.filenameAtom, (0,))
-
-			for type in self.types:
-				h5_shape,chunk_shape = self._get_h5_shapes(type)
-				h5arrays[type]= pytable[phase].create_earray(pytable[phase].root, type, self.dtype,
-													  shape= h5_shape, #np.append([0],self.data_shape[type]),
-													  chunkshape= chunk_shape,#np.append([1],self.data_shape[type]),
-													  filters=filters)
-			#cv2.COLOR_BGR2RGB
-			for file_id in tqdm(self.phases[phase]):
-				#img as label,
-				file = self.filelist[file_id]
-				
-				(patches[self.types[0]],patches[self.types[1]],isValid) = self.img_label_patches(file)
-				
-				
-				if (isValid):
-					for type in self.types:
-						h5arrays[type].append(patches[type])
-						datasize[type] = datasize.get(type,0)+np.asarray(patches[type]).shape[0]
-				if self.enable_weight and self.class_names is not None:
-					classid=[idx for idx in range(len(self.class_names)) if self.class_names[idx] in file][0]
-					totals[classid]+=1
-				#
-				#tqdm.write(patches)
-				#tqdm.write(str( patches.values()))
-				if patches and  (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None):
-					filename_list = [file for x in range(patches[self.types[0]].shape[0])]
-					#tqdm.write(str(filename_list))
-					if filename_list:
-						h5arrays["filename"].append(filename_list)
-					else:
-						#do nothing. leave it here for tests
-						pass
-				else:
-					pass
-					#tqdm.write(str(file))
+			with pytable[phase]:
+				for type in self.types:
+					h5_shape,chunk_shape = self._get_h5_shapes(type)
+					h5arrays[type]= pytable[phase].create_earray(pytable[phase].root, type, self.dtype,
+														  shape= h5_shape, #np.append([0],self.data_shape[type]),
+														  chunkshape= chunk_shape,#np.append([1],self.data_shape[type]),
+														  filters=filters)
+				#cv2.COLOR_BGR2RGB
+				for file_id in tqdm(self.phases[phase]):
+					#img as label,
+					file = self.filelist[file_id]
 					
-			if self.enable_weight:
-				npixels=pytable[phase].create_carray(pytable[phase].root, 'classsizes', tables.Atom.from_dtype(totals.dtype), totals.shape)
-				npixels[:]=totals
-			
-			for k,v in pytable.items():
-				v.close()
+					(patches[self.types[0]],patches[self.types[1]],isValid,extra_inforamtion) = self.img_label_patches(file)
+					
+					
+					if (isValid):
+						for type in self.types:
+							h5arrays[type].append(patches[type])
+							datasize[type] = datasize.get(type,0)+np.asarray(patches[type]).shape[0]
+						if self.enable_weight and self.classes is not None:
+							self.count_weight(totals,
+											  file,
+											  patches[self.types[0]],
+											  patches[self.types[1]],
+											  extra_inforamtion)
+					#
+					#tqdm.write(patches)
+					#tqdm.write(str( patches.values()))
+					if patches and  (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None):
+						filename_list = [file for x in range(patches[self.types[0]].shape[0])]
+						#tqdm.write(str(filename_list))
+						if filename_list:
+							h5arrays["filename"].append(filename_list)
+						else:
+							#do nothing. leave it here for tests
+							pass
+					else:
+						pass
+						#tqdm.write(str(file))
+						
+				if self.enable_weight:
+					npixels=pytable[phase].create_carray(pytable[phase].root, 'class_sizes', tables.Atom.from_dtype(totals.dtype), totals.shape)
+					npixels[:]=totals
+				
+				for k,v in pytable.items():
+					v.close()
 			
 		return datasize
 	
@@ -220,17 +241,18 @@ class database(object):
 	def __getitem__(self, phase_index_tuple):
 		phase,index = phase_index_tuple
 		with tables.open_file(self.generate_tablename(phase)[0],'r') as pytable:
-			image = pytable.root.img[index,]
-			label = pytable.root.label[index,]
+			image = getattr(pytable.root,self.types[0])[index,]
+			label = getattr(pytable.root,self.types[1])[index,]
 		return image,label
 
 	def size(self,phase):
 		with tables.open_file(self.generate_tablename(phase)[0],'r') as pytable:
-			return pytable.root.img.shape[0]
+			return getattr(pytable.root,self.types[0]).shape[0]
 	
 	def peek(self,phase):
 		with tables.open_file(self.generate_tablename(phase)[0],'r') as pytable:
-			return pytable.root.img.shape,pytable.root.label.shape
+			return getattr(pytable.root,self.types[0]).shape,
+					getattr(pytable.root,self.types[1]).shape
 	
 
 class kfold(object):	

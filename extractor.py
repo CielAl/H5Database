@@ -8,6 +8,11 @@ import numpy as np
 import PIL
 import skimage
 
+'''
+	takes
+	return (img, mask(or label), isvalid, extra_inforamtion)
+'''
+
 def srcnn_img_label_pair(obj,file):
 	img = cv2.imread(file,cv2.COLOR_BGR2RGB)
 	img_down = cv2.resize(img,(0,0),fx=obj.resize,fy=obj.resize, interpolation=obj.interp)
@@ -25,7 +30,7 @@ def extractor_super_resolution(obj,file):
 	img_truth,img_down = srcnn_img_label_pair(obj,file)
 	image = generate_patch(obj,img_down,'img')
 	label = generate_patch(obj,img_truth,'label')
-	return (image,label,True)
+	return (image,label,True,None)
 
 	
 
@@ -64,7 +69,7 @@ def extractor_patch_classification(obj,file):
 	
 	#discard patches that are too small - mistakes of annotations?
 	if image_whole.shape[0]<obj.data_shape['img'][0] or image_whole.shape[1]<obj.data_shape['img'][1]:
-		return (None,None,False)
+		return (None,None,False,None)
 	
 	#make background pixel strictly 0
 	image_whole_sanitized = background_sanitize(image_whole)
@@ -72,4 +77,4 @@ def extractor_patch_classification(obj,file):
 	
 	data_image_qualified= patch_qualification(data_image_sanitized,obj.tissue_area_thresh) 
 	data_label = [classid for x in range(data_image_qualified.shape[0])]
-	return (data_image_qualified,data_label,True)
+	return (data_image_qualified,data_label,True,None)
