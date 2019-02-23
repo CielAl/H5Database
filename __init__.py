@@ -223,8 +223,7 @@ class Database(object):
 
 	def _write_data(self):
 		filters=tables.Filters(complevel= 5)
-		self.task_dispatcher = self.TaskDispatcher(self) 
-		with self.task_dispatcher:
+		with self.TaskDispatcher(self) as self.task_dispatcher:
 			for phase in self.phases:			
 				self.task_dispatcher.write(phase,filters)
 		return self.task_dispatcher.datasize
