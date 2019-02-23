@@ -71,7 +71,7 @@ class Database(object):
 						same level of a VLArray.
 				patch_pair_extractor_func (:obj:`function`): The function to generate patches for each image file. 
 					Takes: 
-						obj: The DataExtractor object which is initialized in write_data. The DataExtractor has a 'database' attribute which links to the database created
+						obj: The DataExtractor object which is initialized in _write_data. The DataExtractor has a 'database' attribute which links to the database created
 						and is able to access all information stored in the database. The DataExtractor object also compiles the argument dict "meta" of the database, which stores
 						arbitrary information required in the patch_pair_extractor_func.
 						file: The file path of the data file to extract
@@ -92,7 +92,7 @@ class Database(object):
 					pattern (:obj:`str`, optional): wildcard pattern of the images. Default is *.png
 					weight_counter_func (:obj:`function`, optional): The function handle to count class weight in-place.
 						Takes:
-							obj: The WeightCollector object which invokes the function (initialized in write_data)
+							obj: The WeightCollector object which invokes the function (initialized in _write_data)
 								WeightCollector has an attribute "database" that links to the parent database object.
 							totals: The class weight matrix. The accumulation will be done in-place.
 							file: The filepath of the data.
@@ -126,10 +126,8 @@ class Database(object):
 			self.filedir = kwargs['filedir']
 			self.data_shape = kwargs['data_shape']
 			self.validate_shape_key(self.data_shape)
-			
 			self.group_level = kwargs['group_level']
 			self.patch_pair_extractor_func = kwargs['extractor']
-			
 			
 			self.chunk_width = kwargs.get('chunk_width',1)
 			self.numsplit = kwargs.get('numfold',10)
@@ -138,26 +136,23 @@ class Database(object):
 			
 			
 			self.weight_counter_func = kwargs.get('weight_counter')
-				
-			
 			self.enable_weight = kwargs.get('classweight',False)
 			self.classes = kwargs.get('classnames',None)
 			
-
 			self.filelist = kwargs.get('filelist',self.get_filelist())
-		
 			self.splits = kwargs.get('split',self.init_split())
+			
 			self.meta = kwargs.get('meta',{})
 			self.filenameAtom = tables.StringAtom(itemsize=255)
 			self.row_atom_func =  kwargs.get('row_atom_func',tables.UInt8Atom)
-			self._atoms = self._init_atoms(self.row_atom_func,self.data_shape)
-
-	
-
+			self.refresh_atoms()
 
 	def validate_shape_key(self,data_shape):
 		assert(sorted(list(self.data_shape.keys())) == sorted(self.types))
 
+	def refresh_atoms(self):
+		self._atoms = self._init_atoms(self.row_atom_func,self.data_shape)
+		return self._atoms
 	@LazyProperty
 	def types(self):
 		return ['img','label']
@@ -211,19 +206,7 @@ class Database(object):
 		return pytable_fullpath,pytable_dir
 	
 	
-	def _fetch_all_files(self,phase,hdf5_organizer,data_extractor,weight_writer,datasize = None):
-			patches = {}
-			for file_id in tqdm(self.splits[phase]):
-				file = self.filelist[file_id]
-				(patches[self.types[0]],patches[self.types[1]],isValid,extra_inforamtion) = data_extractor.extract(file)
-				if (isValid):
-					hdf5_organizer.write_data_to_array(patches,datasize)
-					weight_writer.weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_inforamtion)
-					hdf5_organizer.write_file_names_to_array(file,patches,category_type = "filename")
-					
-				else:
-					#do nothing. leave it blank here for: (1) test. (2) future works
-					...	
+
 	'''
 		Return false if no hdf5 found on the export path.
 	'''	
@@ -235,11 +218,20 @@ class Database(object):
 	'''	
 	def initialize(self,force_overwrite = False):
 		if (not self.is_instantiated(_TRAIN_NAME)) or (not self.is_instantiated(_VAL_NAME)) or force_overwrite:
-			self.write_data()
-			
+			self._write_data()
+
+
+	def _write_data(self):
+		filters=tables.Filters(complevel= 5)
+		self.task_dispatcher = self.TaskDispatcher(self) 
+		with self.task_dispatcher:
+			for phase in self.phases:			
+				self.task_dispatcher.write(phase,filters)
+		return self.task_dispatcher.datasize
+		
 	'''
 		Slice the chunk of patches out of the database.
-		Precondition: Existence of pytable file. Does not require to call "write_data" as long as pytables exist
+		Precondition: Existence of pytable file. Does not require to call "_write_data" as long as pytables exist
 		Args:
 			phase_index_tuple: ('train/val',index)
 		Returns:
@@ -263,51 +255,61 @@ class Database(object):
 		with tables.open_file(self.generate_tablename(phase)[0],'r') as pytable:
 			return (getattr(pytable.root,self.types[0]).shape,
 			getattr(pytable.root,self.types[1]).shape)
-
-
-		
-		
-	
-	def _create_h5array_by_types(self,hdf5_organizer,phase,filters):
-		for category_typetype in self.types:
-			hdf5_organizer.build_patch_array(phase,category_typetype,self.atoms[category_typetype],filters)
 	
 	
 	@staticmethod
 	def prepare_export_directory(pytable_dir):
 			if not os.path.exists(pytable_dir):
 				os.makedirs(pytable_dir)	
-				
-				
-
 	
 
-
-
+	
+	class TaskDispatcher(DatabaseNested):
+		def __init__(self,database):
+			super().__init__(database)
+			self.hdf5_organizer = self.database.H5Organizer(self.database,self.database.group_level)
+			self.data_extractor = self.database.DataExtractor(self.database)
+			self.weight_writer = self.database.WeightCollector(self.database, weight_counter = self.database.weight_counter_func)
+			self.datasize = {}
+			self.database.refresh_atoms()
+		@property
+		def types(self):
+			return self.database.types
+		
+		def write(self,phase,filters):
+			self.hdf5_organizer.build_patch_array(phase,'filename',self.database.filenameAtom)
+			with self.hdf5_organizer.pytables[phase]:	
+				self._create_h5array_by_types(phase,filters)
+				self._fetch_all_files(phase)
+				self.weight_writer.write_classweight_to_db(self.hdf5_organizer,phase)		
 			
+		def _create_h5array_by_types(self,phase,filters):
+			for category_typetype in self.types:
+				self.hdf5_organizer.build_patch_array(phase,category_typetype,self.database.atoms[category_typetype],filters)
 
-
-	# Tutorial from  https://github.com/jvanvugt/pytorch-unet
-	
-	def write_data(self):
-		h5arrays = {}
-		datasize = {}
-		filters=tables.Filters(complevel= 5)
+		def _fetch_all_files(self,phase):
+				patches = {}
+				for file_id in tqdm(self.database.splits[phase]):
+					file = self.database.filelist[file_id]
+					(patches[self.types[0]],patches[self.types[1]],isValid,extra_inforamtion) = self.data_extractor.extract(file)
+					if (isValid):
+						self.hdf5_organizer.write_data_to_array(phase,patches,self.datasize)
+						self.weight_writer.weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_inforamtion)
+						self.hdf5_organizer.write_file_names_to_array(phase,file,patches,category_type = "filename")
+						
+					else:
+						#do nothing. leave it blank here for: (1) test. (2) future works
+						...	
+		def __enter__(self):
+			return self
+			
+		def __exit__(self,type, value, traceback):
+			self.flush()
 		
-		hdf5_organizer = self.H5Organizer(self,self.group_level)
-		data_extractor = self.DataExtractor(self)
-		weight_writer = self.WeightCollector(self, weight_counter = self.weight_counter_func)
-		
-		for phase in self.phases:			
-			patches = {}
-			hdf5_organizer.build_patch_array(phase,'filename',self.filenameAtom)
-			with hdf5_organizer.pytables[phase]:	
-				self._create_h5array_by_types(hdf5_organizer,phase,filters)
-				self._fetch_all_files(phase,hdf5_organizer,data_extractor,weight_writer,datasize)
-				weight_writer.write_classweight_to_db(hdf5_organizer,phase)
-		return datasize
-	
-	
+		def flush(self):
+			for phase in self.hdf5_organizer.phases:
+				self.hdf5_organizer.flush(phase)
+			
 	class DataExtractor(DatabaseNested):
 		def __init__(self,database):
 			super().__init__(database)
@@ -383,7 +385,12 @@ class Database(object):
 			self._h5arrays = self._empty_h5arrays_dict(self.phases,self.types)
 			self._pytables = self._new_pytables_from_database(self.phases)
 			self.group_level = group_level
-	
+			
+		def flush(self,phase):
+			for type,h5array in self._h5arrays[phase].items():
+				self._h5arrays[phase][type] = []
+			self._h5arrays[phase] = []
+		
 		@property
 		def h5arrays(self):
 			return self._h5arrays
@@ -433,26 +440,26 @@ class Database(object):
 				create_func = self.pytables[phase].create_vlarray
 			else:
 				raise ValueError('Invalid Group Level:'+str(self.group_level))
-			self.h5arrays[category_type] = create_func(self.pytables[phase].root, category_type,**params)
-			return self.h5arrays[category_type]
+			self.h5arrays[phase][category_type] = create_func(self.pytables[phase].root, category_type,**params)
+			return self.h5arrays[phase][category_type]
 		#carrays. metadata
 		def build_statistics(self,phase,category_type,data):
-			self.h5arrays[category_type] = self.pytables[phase].create_carray(self.pytables[phase].root, 
+			self.h5arrays[phase][category_type] = self.pytables[phase].create_carray(self.pytables[phase].root, 
 																				 category_type, 
 																				 tables.Atom.from_dtype(data.dtype), 
 																				 data.shape)
-			return self.h5arrays[category_type]																	 
-		def write_data_to_array(self,patches_dict,datasize = None):
+			return self.h5arrays[phase][category_type]																	 
+		def write_data_to_array(self,phase,patches_dict,datasize = None):
 			for type in self.types:
-				self.h5arrays[type].append(patches_dict[type])
+				self.h5arrays[phase][type].append(patches_dict[type])
 				if datasize is not None:
 					datasize[type] = datasize.get(type,0)+np.asarray(patches_dict[type]).shape[0]		
 
-		def write_file_names_to_array(self,file,patches,category_type ="filename"):
+		def write_file_names_to_array(self,phase,file,patches,category_type ="filename"):
 			if patches and  (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None):
 				filename_list = [file for x in range(patches[self.types[0]].shape[0])]
 				if filename_list:
-					self.h5arrays[category_type].append(filename_list)
+					self.h5arrays[phase][category_type].append(filename_list)
 				else:
 					...#do nothing. leave it here for tests	
 
@@ -493,5 +500,5 @@ class Kfold(object):
 			#redifine split
 			self.data_set.export_dir = os.path.join(self.rootdir,str(fold))
 			self.data_set.splits[_TRAIN_NAME],self.data_set.splits[_VAL_NAME] = self.split[fold]
-			self.data_set.write_data()
+			self.data_set._write_data()
 	
