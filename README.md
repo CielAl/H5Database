@@ -1,4 +1,5 @@
 # H5Database
 
-* A wrapper of the framework based on the implementation of http://www.andrewjanowczyk.com/pytorch-unet-for-digital-pathology-segmentation/
-* Train data is from the repo: https://github.com/lvkd84/SRCNN
+* The scaffold i based on http://www.andrewjanowczyk.com/pytorch-unet-for-digital-pathology-segmentation/
+* Demo image data are from a subset of [ImageNet]:http://www.image-net.org/.
+* Usage: check sample ipynb. 
