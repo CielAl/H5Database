@@ -9,20 +9,20 @@ import PIL
 import skimage
 
 '''
-	takes
-	return (img, mask(or label), isvalid, extra_inforamtion)
+	takes	Extractor object, file
+	return img, mask(or label), isvalid, extra_inforamtion
 '''
 
 def srcnn_img_label_pair(obj,file):
 	img = cv2.imread(file,cv2.COLOR_BGR2RGB)
-	img_down = cv2.resize(img,(0,0),fx=obj.resize,fy=obj.resize, interpolation=obj.interp)
+	img_down = cv2.resize(img,(0,0),fx=obj.meta.resize,fy=obj.meta.resize, interpolation=obj.meta.interp)
 	#the shape is (y,x) while cv2.resize requires (x,y)
-	img_down = cv2.resize(img_down,(img.shape[1],img.shape[0]),interpolation=obj.interp)
+	img_down = cv2.resize(img_down,(img.shape[1],img.shape[0]),interpolation=obj.meta.interp)
 	return img,img_down
 
 def generate_patch(obj,image,type = 'img'):
-	patches_label= extract_patches(image,obj.data_shape[type],obj.stride_size)
-	patches_label = patches_label.reshape((-1,)+obj.data_shape[type])
+	patches_label= extract_patches(image,obj.database.data_shape[type],obj.meta.stride_size)
+	patches_label = patches_label.reshape((-1,)+obj.database.data_shape[type])
 	return patches_label
 
 #image label
@@ -63,18 +63,18 @@ def background_sanitize(image,params={}):
 	image[mask==1] = 0
 	return image
 def extractor_patch_classification(obj,file):
-	classid=[idx for idx in range(len(obj.class_names)) if obj.class_names[idx] in file][0]
+	classid=[idx for idx in range(len(obj.database.class_names)) if obj.database.class_names[idx] in file][0]
 	image_whole = cv2.cvtColor(cv2.imread(file),cv2.COLOR_BGR2RGB)
-	image_whole = cv2.resize(image_whole,(0,0),fx=obj.resize,fy=obj.resize, interpolation=PIL.Image.NONE)
+	image_whole = cv2.resize(image_whole,(0,0),fx=obj.meta.resize,fy=obj.meta.resize, interpolation=PIL.Image.NONE)
 	
 	#discard patches that are too small - mistakes of annotations?
-	if image_whole.shape[0]<obj.data_shape['img'][0] or image_whole.shape[1]<obj.data_shape['img'][1]:
+	if image_whole.shape[0]<obj.database.data_shape['img'][0] or image_whole.shape[1]<obj.database.data_shape['img'][1]:
 		return (None,None,False,None)
 	
 	#make background pixel strictly 0
 	image_whole_sanitized = background_sanitize(image_whole)
 	data_image_sanitized  = generate_patch(obj,image_whole_sanitized,type = 'img')
 	
-	data_image_qualified= patch_qualification(data_image_sanitized,obj.tissue_area_thresh) 
+	data_image_qualified= patch_qualification(data_image_sanitized,obj.meta.tissue_area_thresh) 
 	data_label = [classid for x in range(data_image_qualified.shape[0])]
 	return (data_image_qualified,data_label,True,None)

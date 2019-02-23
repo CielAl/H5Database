@@ -10,14 +10,14 @@ import os
 import sys
 
 #image io and processing
-import cv2
+
 import PIL
 import numpy as np
 
 #patch extraction and dataset split: Use 1 pair of train-validation to due to limitation of time
 from sklearn import model_selection
-import sklearn.feature_extraction.image
-from sklearn.feature_extraction.image import extract_patches
+#import sklearn.feature_extraction.image
+
 import random
 
 from weight_counter import weight_counter_filename
@@ -29,77 +29,136 @@ from lazy_property import LazyProperty
 
 _TRAIN_NAME = 'train'
 _VAL_NAME  = 'val'
-class database(object):
 
+class DatabaseNested(object):
+	def __init__(self,database):
+		self._database = database
+		
+	@property
+	def database(self):
+		return self._database
 
-	''' The constructor of the class. Some of the logic are inspired from the blog and its corresponding code here:
-			http://www.andrewjanowczyk.com/pytorch-unet-for-digital-pathology-segmentation/
+class Database(object):
+
+	
+	def __init__(self,**kwargs):
+		'''Main Class of the Module.
+		
+		For each phase (train or val), this class generates a pytable, and saves the extracted patches/labels/masks/... 
+		into the pytable.	
+		__getitem__, __len__ are defined to peek the contents. Note, it cannot be directly converted to pytorch database as the 
+		collections contains both train and val sets.
+		Use a tuple index, e.g. database['train',25] to fetch data in certain dataset.
+		The scaffolds are inspired from the blog and its corresponding code here:
+				http://www.andrewjanowczyk.com/pytorch-unet-for-digital-pathology-segmentation/
 		Args:
-			Mandatory:
-				filedir: base dir of the image
-				
-				database_name: file name of the database
-				export_dir: location to write the table
-				data_shape: Dict containing tuples. data_shape[type] is the shape of the patch (type as image or label) 
-				stride_size: overlapping of patches.
+			**kwargs: Keyword Arguments. Some will be mandatory if "readonly" is false. If mandatory, all except export_dir and database_name are optional.
+				Mandatory:
+				export_dir (:obj:`str`): location to write the table. Always Mandatory with readonly or not.
+				database_name (:obj:`str`): Name of the database. It is also defined as part of the filename of pytables. Always Mandatory with readonly or not.
+				filedir (:obj:`str`): basedir of the image data to read. 				
+				data_shape (:obj:`dict`): Keys of the dict are corresponding to the category types, e.g. images/labels/...
+					So far, the keys must be identical to what is defined under the property: Database.types.
+					Values of the dict are the corresponding shape. The type of the shape should be tuple.
+					Example:
+						{
+							'img': (256,256,3),
+							'label':[0], #in case of scalars
+						}
+				group_level (int): The level to group the patches together.
+					If 0 is given, there is no grouping. All patches from every images will be stored under the same level (EArray class).
+					If 1 is give, patches from the same image will be stored in a list. Those Lists extracted from different images will be stored in the 
+						same level of a VLArray.
+				patch_pair_extractor_func (:obj:`function`): The function to generate patches for each image file. 
+					Takes: 
+						obj: The DataExtractor object which is initialized in write_data. The DataExtractor has a 'database' attribute which links to the database created
+						and is able to access all information stored in the database. The DataExtractor object also compiles the argument dict "meta" of the database, which stores
+						arbitrary information required in the patch_pair_extractor_func.
+						file: The file path of the data file to extract
+					Returns:
+						img: patch data extracted from the file, or anything fit the defined data_shape.
+						mask/label: Mask, label, or any other information that pairs with img.
+						isValid: A boolean indicating whether to retain the result of the extraction. The results will be saved into HDF5 array iff isValid is True.
+						extra_inforamtion: Any other information that should be stored for Class Weight counting.
+						
 			Optional:
-				pattern: wildcard pattern of the images. Default is *.jpg
-				interp: the interpolation method, default is PIL.IMAGE.NONE
-				resize: the factor of resize the processing, which is 1/downsample_factor.
-				row_atom_func: The callable that defines the Atom: the Data type and the shape of the atomic row elements. Default: UInt8Atom
-				test_ratio: ratio of the dataset as test. Default: 0.1
+				readonly (bool, optional): determine whether it is simply to read pytables (using __getitem__ etc.) or create new ones.
+					If true. All but export_dir and database_name will be optional.
+				chunk_width (int, optional): The width of the chunk in terms of the number of row elements. Default value is 1.
+				numfold (int, optional): Determines the size of fold in the splits. The database class generates only 1 fold of k-fold cross-validation.
+					i.e. it puts  1/numfold of data into validation set and the rest to the training set. See class Kfold for the generation of the complete 
+					K-fold cross-validation. Default is 10.
+				shuffle (bool, optional): Determines whether the data will be shuffled in the Cross Validator (k-fold)
+				pattern (:obj:`str`, optional): wildcard pattern of the images. Default is *.png
+				weight_counter_func (:obj:`function`, optional): The function handle to count class weight in-place.
+					Takes:
+						obj: The WeightCollector object which invokes the function (initialized in write_data)
+							WeightCollector has an attribute "database" that links to the parent database object.
+						totals: The class weight matrix. The accumulation will be done in-place.
+						file: The filepath of the data.
+						img: The patch generated by the extractor.
+						label: The mask/label generated by the extractor.
+						extra_information: The extra information generated by the extractor. 
+				classweight (bool, optional): Determines whether to count class weights. If True, weight_counter_func must be given.
+				classnames (:obj:`list`, optional): List of all classnames. The values in the list must implement the to-string conversion, i.e. str(value) must be defined. 
+				filelist (:obj:`list`, optional): List of files. If given, it will override the lists generated by the `pattern`.
+				splits (:obj:`dict`, optional): Keys are the phases, i.e. train and val. Values are the array of index (integer) of files in the filelist that are included in the phase.
+					If given, it will override the file split generated by the Cross Validator.
+				meta (:obj:`dict`, optional): The dict that stores all required information for any callbacks, e.g. patch_pair_extractor_func.
+					Default values are given to certain frequently requested information (See class DataExtractor):
+							meta['stride_size'] = meta.get('stride_size',128)
+							meta['tissue_area_thresh'] = meta.get('tissue_area_thresh',0.95)
+							meta['interp'] = meta.get('interp',PIL.Image.NONE)
+							meta['resize'] = meta.get('resize',0.5)
+				row_atom_func (:obj:`tables.atom.MetaAtom`, option): The callable that defines the Atom: the Data type and the shape of the atomic row elements. Default: UInt8Atom
+				
 		Raises:
 			KeyError if the mandatory inputs is missing
-	'''
-	def __init__(self,**kwargs):
-	
+						interp: the interpolation method, default is PIL.IMAGE.NONE
+				resize: the factor of resize the processing, which is 1/downsample_factor.
+		'''	
 		self.KEY_TRAIN = _TRAIN_NAME
 		self.KEY_VAL = _VAL_NAME
 		
-		self.filedir = kwargs['filedir']
-		self.maskdir = kwargs.get('maskdir',None)
-		self.database_name = kwargs['database_name']
 		self.export_dir = kwargs['export_dir']
-		
-		self.data_shape = kwargs['data_shape']
-		self.validate_shape_key(self.data_shape)
-		
-		self.group_level = kwargs['group_level']
-		
-		self.stride_size = kwargs['stride_size']
-		
-		self.chunk_width = kwargs.get('chunk_width',1)
-		self.numsplit = kwargs.get('numfold',10)
-		self.shuffle = kwargs.get('shuffle',True)
-		self.tissue_area_thresh = kwargs.get('tissue_ratio',0.95)
-		self.patch_pair_extractor_func = kwargs.get('extractor')
-		
-		self.weight_counter_func = kwargs.get('weight_counter')
-		
-		self.pattern = kwargs.get('pattern','*.jpg')
-		self.interp = kwargs.get('interp',PIL.Image.NONE)
-		self.resize = kwargs.get('resize',0.5)
+		self.database_name = kwargs['database_name']
+		self.readonly = kwargs.get('readonly',False)
+		if not self.readonly:
+			self.filedir = kwargs['filedir']
+			self.data_shape = kwargs['data_shape']
+			self.validate_shape_key(self.data_shape)
+			
+			self.group_level = kwargs['group_level']
+			self.patch_pair_extractor_func = kwargs['extractor']
+			
+			
+			self.chunk_width = kwargs.get('chunk_width',1)
+			self.numsplit = kwargs.get('numfold',10)
+			self.shuffle = kwargs.get('shuffle',True)
+			self.pattern = kwargs.get('pattern','*.png')
+			
+			
+			self.weight_counter_func = kwargs.get('weight_counter')
+				
+			
+			self.enable_weight = kwargs.get('classweight',False)
+			self.classes = kwargs.get('classnames',None)
+			
 
+			self.filelist = kwargs.get('filelist',self.get_filelist())
 		
-		
-		self.test_ratio = kwargs.get('test_ratio',0.5)
-		
-		self.enable_weight = kwargs.get('classweight',False)
-		self.classes = kwargs.get('classnames',None)
-		
+			self.splits = kwargs.get('split',self.init_split())
+			self.meta = kwargs.get('meta',{})
+			self.filenameAtom = tables.StringAtom(itemsize=255)
+			self.row_atom_func =  kwargs.get('row_atom_func',tables.UInt8Atom)
+			self._atoms = self._init_atoms(self.row_atom_func,self.data_shape)
 
-		self.filelist = kwargs.get('filelist',self.get_filelist())
-		
-		self.splits = kwargs.get('split',self.init_split())
-		self.meta = kwargs.get('meta',{})
+	
 
-		self.filenameAtom = tables.StringAtom(itemsize=255)
-		self.row_atom_func =  kwargs.get('row_atom_func',tables.UInt8Atom)
-		self._atoms = self._init_atoms(self.row_atom_func,self.data_shape)
-		
-		
+
 	def validate_shape_key(self,data_shape):
 		assert(sorted(list(self.data_shape.keys())) == sorted(self.types))
+
 	@LazyProperty
 	def types(self):
 		return ['img','label']
@@ -137,7 +196,7 @@ class database(object):
 		Invoke the patch_pair_extractor_func, which is a function handle. So "self" must be explicitly passed to 
 		the inputs.
 	'''
-	def img_label_patches(self,file):
+	def _img_label_patches(self,file):
 		#patch_pair_extractor_func is a callback: manually pass "self" as its 1st arg
 		return self.patch_pair_extractor_func(self,file)
 	
@@ -153,14 +212,14 @@ class database(object):
 		return pytable_fullpath,pytable_dir
 	
 	
-	def _fetch_all_files(self,phase,hdf5_organizer,datasize):
+	def _fetch_all_files(self,phase,hdf5_organizer,data_extractor,weight_writer,datasize = None):
 			patches = {}
 			for file_id in tqdm(self.splits[phase]):
 				file = self.filelist[file_id]
-				(patches[self.types[0]],patches[self.types[1]],isValid,extra_inforamtion) = self.img_label_patches(file)
+				(patches[self.types[0]],patches[self.types[1]],isValid,extra_inforamtion) = data_extractor.extract(file)
 				if (isValid):
 					hdf5_organizer.write_data_to_array(patches,datasize)
-					self.weight_writer.weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_inforamtion)
+					weight_writer.weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_inforamtion)
 					hdf5_organizer.write_file_names_to_array(file,patches,category_type = "filename")
 					
 				else:
@@ -175,8 +234,8 @@ class database(object):
 	'''
 		non-overridable
 	'''	
-	def initialize(self):
-		if (not self.is_instantiated(_TRAIN_NAME)) or (not self.is_instantiated(_VAL_NAME)):
+	def initialize(self,force_overwrite = False):
+		if (not self.is_instantiated(_TRAIN_NAME)) or (not self.is_instantiated(_VAL_NAME)) or force_overwrite:
 			self.write_data()
 			
 	'''
@@ -227,7 +286,7 @@ class database(object):
 
 
 			
-			
+
 
 	# Tutorial from  https://github.com/jvanvugt/pytorch-unet
 	
@@ -237,33 +296,47 @@ class database(object):
 		filters=tables.Filters(complevel= 5)
 		
 		hdf5_organizer = self.H5Organizer(self,self.group_level)
-		self.weight_writer = self.WeightCollector(self, weight_counter = self.weight_counter_func)
+		data_extractor = self.DataExtractor(self)
+		weight_writer = self.WeightCollector(self, weight_counter = self.weight_counter_func)
 		
 		for phase in self.phases:			
 			patches = {}
 			hdf5_organizer.build_patch_array(phase,'filename',self.filenameAtom)
 			with hdf5_organizer.pytables[phase]:	
 				self._create_h5array_by_types(hdf5_organizer,phase,filters)
-				self._fetch_all_files(phase,hdf5_organizer,datasize)
-				self.weight_writer.write_classweight_to_db(hdf5_organizer,phase)		
+				self._fetch_all_files(phase,hdf5_organizer,data_extractor,weight_writer,datasize)
+				weight_writer.write_classweight_to_db(hdf5_organizer,phase)
 		return datasize
 	
 	
+	class DataExtractor(DatabaseNested):
+		def __init__(self,database):
+			super().__init__(database)
+			self.meta = self._default_meta(self.database.meta)
+		#part of common default values
+		def _default_meta(self,meta):
+			meta['stride_size'] = meta.get('stride_size',128)
+			meta['tissue_area_thresh'] = meta.get('tissue_area_thresh',0.95)
+			meta['interp'] = meta.get('interp',PIL.Image.NONE)
+			meta['resize'] = meta.get('resize',0.5)
+			return SimpleNamespace(**meta)
+		
+		def extract(self,file):
+			return self.database.patch_pair_extractor_func(self,file)
+		
 	
 
 			
 	'''
 		Weight.
 	'''	
-	class WeightCollector(object):
+	class WeightCollector(DatabaseNested):
 		def __init__(self,database,**kwargs):
-			self._database = database
+			super().__init__(database)
 			self.weight_counter_func = kwargs.get('weight_counter',self.database.weight_counter_func)
 			self._totals = self._new_weight_storage()
 		
-		@property
-		def database(self):
-			return self._database
+
 
 		@property
 		def totals(self):
@@ -294,7 +367,7 @@ class database(object):
 
 		def count_weight(self,totals,file,img,label,extra_infomration):
 			#weight_counter_func is callback - manually pass the associated database as its 1st arg
-			return self.weight_counter_func(self.database,totals,file,img,label,extra_infomration)
+			return self.weight_counter_func(self,totals,file,img,label,extra_infomration)
 	
 	def _init_atoms(self,row_atom_func,data_shape_dict):
 		atoms = {}
@@ -302,19 +375,16 @@ class database(object):
 				atoms[k] = row_atom_func(shape = tuple(v))
 		return atoms
 	
-	class H5Organizer(object):
+	class H5Organizer(DatabaseNested):
 		LEVEL_PATCH = 0
 		LEVEL_GROUP = 1
 		
 		def __init__(self,database,group_level):
-			self._database = database
+			super().__init__(database)
 			self._h5arrays = self._empty_h5arrays_dict(self.phases,self.types)
 			self._pytables = self._new_pytables_from_database(self.phases)
 			self.group_level = group_level
-			
-		@property
-		def database(self):
-			return self._database		
+	
 		@property
 		def h5arrays(self):
 			return self._h5arrays
@@ -368,7 +438,7 @@ class database(object):
 			return self.h5arrays[category_type]
 		#carrays. metadata
 		def build_statistics(self,phase,category_type,data):
-			self.h5arrays[category_type] = self.pytables[phase].create_carray(pytable_dict[phase].root, 
+			self.h5arrays[category_type] = self.pytables[phase].create_carray(self.pytables[phase].root, 
 																				 category_type, 
 																				 tables.Atom.from_dtype(data.dtype), 
 																				 data.shape)
@@ -403,7 +473,11 @@ class database(object):
 				pytables[phase] = tables.open_file(pytable_fullpath, mode='w')
 			return pytables
 
-class kfold(object):	
+	
+
+
+	
+class Kfold(object):	
 
 
 	def __init__(self,**kwargs):
@@ -412,7 +486,7 @@ class kfold(object):
 		kwargs['numfold'] = self.numfold
 		kwargs['shuffle'] = self.shuffle
 		self.rootdir = kwargs['export_dir']
-		self.data_set = database(**kwargs) #init dataset object
+		self.data_set = Database(**kwargs) #init dataset object
 		self.split = list(self.data_set.kfold_split())
 
 	def run(self):
