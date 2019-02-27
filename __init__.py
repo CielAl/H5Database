@@ -79,7 +79,7 @@ class Database(object):
 						img: patch data extracted from the file, or anything fit the defined data_shape.
 						mask/label: Mask, label, or any other information that pairs with img.
 						isValid: A boolean indicating whether to retain the result of the extraction. The results will be saved into HDF5 array iff isValid is True.
-						extra_inforamtion: Any other information that should be stored for Class Weight counting.
+						extra_information: Any other information that should be stored for Class Weight counting.
 						
 				Optional:
 					readonly (bool, optional): determine whether it is simply to read pytables (using __getitem__ etc.) or create new ones.
@@ -270,7 +270,6 @@ class Database(object):
 			self.data_extractor = self.database.DataExtractor(self.database)
 			self.weight_writer = self.database.WeightCollector(self.database, weight_counter = self.database.weight_counter_func)
 			self.datasize = {}
-			self.database.refresh_atoms()
 		@property
 		def types(self):
 			return self.database.types
@@ -278,6 +277,7 @@ class Database(object):
 		def write(self,phase,filters):
 			self.hdf5_organizer.build_patch_array(phase,'filename',self.database.filenameAtom)
 			with self.hdf5_organizer.pytables[phase]:	
+				self.database.refresh_atoms()
 				self._create_h5array_by_types(phase,filters)
 				self._fetch_all_files(phase)
 				self.weight_writer.write_classweight_to_db(self.hdf5_organizer,phase)		
@@ -290,10 +290,10 @@ class Database(object):
 				patches = {}
 				for file_id in tqdm(self.database.splits[phase]):
 					file = self.database.filelist[file_id]
-					(patches[self.types[0]],patches[self.types[1]],isValid,extra_inforamtion) = self.data_extractor.extract(file)
+					(patches[self.types[0]],patches[self.types[1]],isValid,extra_information) = self.data_extractor.extract(file)
 					if (isValid):
 						self.hdf5_organizer.write_data_to_array(phase,patches,self.datasize)
-						self.weight_writer.weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_inforamtion)
+						self.weight_writer.weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_information)
 						self.hdf5_organizer.write_file_names_to_array(phase,file,patches,category_type = "filename")
 						
 					else:
@@ -345,13 +345,13 @@ class Database(object):
 		def is_count_weight(self):
 			return self.database.enable_weight and self.database.classes is not None
 			
-		def weight_accumulate(self,file,img,label,extra_infomration):
+		def weight_accumulate(self,file,img,label,extra_information):
 			if self.is_count_weight():
 				self.count_weight(self._totals,
 								  file,
 								  img,
 								  label,
-								  extra_inforamtion)	
+								  extra_information)	
 		
 		def _new_weight_storage(self):
 			if self.is_count_weight():
@@ -362,12 +362,12 @@ class Database(object):
 			
 		def write_classweight_to_db(self,hdf5_organizer,phase):
 			if self.is_count_weight():
-				npixels = hdf5_organizer.build_statistics(phase,'class_sizes',data)
-				npixels[:]=self._totals	
+				npixels = hdf5_organizer.build_statistics(phase,'class_sizes',self.totals)
+				npixels[:]=self.totals	
 
-		def count_weight(self,totals,file,img,label,extra_infomration):
+		def count_weight(self,totals,file,img,label,extra_information):
 			#weight_counter_func is callback - manually pass the associated database as its 1st arg
-			return self.weight_counter_func(self,totals,file,img,label,extra_infomration)
+			return self.weight_counter_func(self,totals,file,img,label,extra_information)
 	
 	def _init_atoms(self,row_atom_func,data_shape_dict):
 		atoms = {}
@@ -500,4 +500,4 @@ class Kfold(object):
 			self.data_set.export_dir = os.path.join(self.rootdir,str(fold))
 			self.data_set.splits[_TRAIN_NAME],self.data_set.splits[_VAL_NAME] = self.split[fold]
 			self.data_set._write_data()
-	
+			

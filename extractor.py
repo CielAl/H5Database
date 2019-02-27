@@ -62,11 +62,14 @@ def background_sanitize(image,params={}):
 	background,mask = getBackground(img_gray,params) #- pixel 1/True is the background part
 	image[mask==1] = 0
 	return image
+	
 def extractor_patch_classification(obj,file):
-	classid=[idx for idx in range(len(obj.database.class_names)) if obj.database.class_names[idx] in file][0]
+	classid=[idx for idx in range(len(obj.database.classes)) if obj.database.classes[idx] in file][0]
 	image_whole = cv2.cvtColor(cv2.imread(file),cv2.COLOR_BGR2RGB)
 	image_whole = cv2.resize(image_whole,(0,0),fx=obj.meta.resize,fy=obj.meta.resize, interpolation=PIL.Image.NONE)
-	
+	if obj.meta.mirror_padding and min(image_whole.shape[0:-1])<= obj.database.data_shape['img'][0]:
+		mirror_pad_size = obj.meta.mirror_pad_size
+		image_whole = np.pad(image_whole, [(mirror_pad_size, mirror_pad_size), (mirror_pad_size, mirror_pad_size), (0, 0)], mode="reflect")
 	#discard patches that are too small - mistakes of annotations?
 	if image_whole.shape[0]<obj.database.data_shape['img'][0] or image_whole.shape[1]<obj.database.data_shape['img'][1]:
 		return (None,None,False,None)
