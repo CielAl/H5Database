@@ -1,5 +1,6 @@
 
-
+import os
+import re
 ''' 
 	Precondition: totals is defined.   obj.database.classes is given.
 
@@ -17,7 +18,8 @@
 
 '''
 def weight_counter_filename(obj,totals,file,img,label,extra_infomration):
-	class_list = [idx for idx in range(len(obj.database.classes)) if str(obj.database.classes[idx]) in file]
+	basename = os.path.basename(file)
+	class_list = [idx for idx in range(len(obj.database.classes)) if re.search(str(obj.database.classes[idx]),basename,re.IGNORECASE)]
 	classid= class_list[0]
 	totals[classid]+= len(class_list)
 	return totals

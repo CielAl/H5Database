@@ -3,11 +3,11 @@ from sklearn.feature_extraction.image import extract_patches
 import cv2
 from skimage.color import rgb2gray
 import numpy as np 
-
+import os
 
 import PIL
 import skimage
-
+import re
 '''
 	takes	Extractor object, file
 	return img, mask(or label), isvalid, extra_inforamtion
@@ -62,9 +62,30 @@ def background_sanitize(image,params={}):
 	background,mask = getBackground(img_gray,params) #- pixel 1/True is the background part
 	image[mask==1] = 0
 	return image
+
+def get_mask_name_default(obj,img_name_pattern):
+	img_name = img_name_pattern[0]
+	suffix = getattr(obj.meta,'mask_suffix','_mask')
+	type = getattr(obj.meta,'mask_ext','png')
+	full_maskname = f"{img_name}{suffix}.{type}"
+	return full_maskname
 	
+#note: no multi
+def mask_screening(obj,file,image):
+	basename = os.path.basename(file) 
+	filename_pattern = os.path.splitext(basename)
+	mask_name_func = getattr(obj.meta,'mask_name_getter',get_mask_name_default)
+	maskname = mask_name_func(obj,filename_pattern)
+	mask_fullpath = os.path.join(obj.meta.mask_dir,maskname)
+	mask = cv2.imread(mask_fullpath).astype(int)
+	#print(mask.shape)
+	#print(image.shape)
+	image[mask<=0] = 0
+	return image
+
 def extractor_patch_classification(obj,file):
-	classid=[idx for idx in range(len(obj.database.classes)) if obj.database.classes[idx] in file][0]
+	basename = os.path.basename(file) 
+	classid=[idx for idx in range(len(obj.database.classes)) if re.search(obj.database.classes[idx],basename,re.IGNORECASE)][0]
 	image_whole = cv2.cvtColor(cv2.imread(file),cv2.COLOR_BGR2RGB)
 	image_whole = cv2.resize(image_whole,(0,0),fx=obj.meta.resize,fy=obj.meta.resize, interpolation=PIL.Image.NONE)
 	if obj.meta.mirror_padding and min(image_whole.shape[0:-1])<= obj.database.data_shape['img'][0]:
@@ -73,7 +94,11 @@ def extractor_patch_classification(obj,file):
 	#discard patches that are too small - mistakes of annotations?
 	if image_whole.shape[0]<obj.database.data_shape['img'][0] or image_whole.shape[1]<obj.database.data_shape['img'][1]:
 		return (None,None,False,None)
-	
+
+	if hasattr(obj.meta,'mask_dir') and obj.meta.mask_dir is not None:
+		#combine masks
+		image_whole = mask_screening(obj,file,image_whole)
+
 	#make background pixel strictly 0
 	image_whole_sanitized = background_sanitize(image_whole)
 	data_image_sanitized  = generate_patch(obj,image_whole_sanitized,type = 'img')
@@ -81,3 +106,4 @@ def extractor_patch_classification(obj,file):
 	data_image_qualified= patch_qualification(data_image_sanitized,obj.meta.tissue_area_thresh) 
 	data_label = [classid for x in range(data_image_qualified.shape[0])]
 	return (data_image_qualified,data_label,True,None)
+

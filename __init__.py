@@ -172,15 +172,17 @@ class Database(object):
 		files=glob.glob(file_pattern)
 		return files
 	
-	def kfold_split(self):
-		return iter(model_selection.KFold(n_splits=self.numsplit,shuffle = self.shuffle).split(self.filelist))
+	def kfold_split(self,stratified_labels = None):
+		if stratified_labels is None:
+			return iter(model_selection.KFold(n_splits=self.numsplit,shuffle = self.shuffle).split(self.filelist))
+		return iter(model_selection.StratifiedKFold(n_splits=self.numsplit,shuffle = self.shuffle).split(self.filelist,stratified_labels))
 	
 	'''
 		Initialize the data split and shuffle.
 	'''
-	def init_split(self):
+	def init_split(self,stratified_labels = None):
 		splits = {}
-		splits[_TRAIN_NAME],splits[_VAL_NAME] = next(self.kfold_split())
+		splits[_TRAIN_NAME],splits[_VAL_NAME] = next(self.kfold_split(stratified_labels = stratified_labels))
 		return splits
 
 
@@ -318,7 +320,7 @@ class Database(object):
 			meta['stride_size'] = meta.get('stride_size',128)
 			meta['tissue_area_thresh'] = meta.get('tissue_area_thresh',0.95)
 			meta['interp'] = meta.get('interp',PIL.Image.NONE)
-			meta['resize'] = meta.get('resize',0.5)
+			meta['resize'] = meta.get('resize',1)
 			return SimpleNamespace(**meta)
 		
 		def extract(self,file):
@@ -492,7 +494,11 @@ class Kfold(object):
 		kwargs['shuffle'] = self.shuffle
 		self.rootdir = kwargs['export_dir']
 		self.data_set = Database(**kwargs) #init dataset object
-		self.split = list(self.data_set.kfold_split())
+		stratified_labels = kwargs.get('stratified_labels',None)
+		self.generate_split(stratified_labels = stratified_labels)
+	
+	def generate_split(self,stratified_labels = None):
+		self.split = list(self.data_set.kfold_split(stratified_labels = stratified_labels))
 
 	def run(self):
 		for fold in range(self.numfold):
