@@ -391,6 +391,7 @@ class Database(object):
 			for type,h5array in self._h5arrays[phase].items():
 				self._h5arrays[phase][type] = []
 			self._h5arrays[phase] = []
+			self.pytables[phase].close()
 		
 		@property
 		def h5arrays(self):
