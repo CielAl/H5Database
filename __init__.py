@@ -123,19 +123,22 @@ class Database(object):
 		self.database_name = kwargs['database_name']
 		self.readonly = kwargs.get('readonly',False)
 		if not self.readonly:
+			
 			self.filedir = kwargs['filedir']
 			self.data_shape = kwargs['data_shape']
 			self.validate_shape_key(self.data_shape)
 			self.group_level = kwargs['group_level']
 			self.patch_pair_extractor_func = kwargs['extractor']
 			
+			
+			self.write_invalid = kwargs.get('write_invalid',False)
 			self.chunk_width = kwargs.get('chunk_width',1)
 			self.numsplit = kwargs.get('numfold',10)
 			self.shuffle = kwargs.get('shuffle',True)
 			self.pattern = kwargs.get('pattern','*.png')
 			
 			
-			self.weight_counter_func = kwargs.get('weight_counter')
+			self.weight_counter_func = kwargs.get('weight_counter',None)
 			self.enable_weight = kwargs.get('classweight',False)
 			self.classes = kwargs.get('classnames',None)
 			
@@ -144,6 +147,8 @@ class Database(object):
 			
 			self.meta = kwargs.get('meta',{})
 			self.filenameAtom = tables.StringAtom(itemsize=255)
+			self.validAtom = tables.BoolAtom(shape=(), dflt=False)
+			self.splitAtom = tables.IntAtom()
 			self.row_atom_func =  kwargs.get('row_atom_func',tables.UInt8Atom)
 			self.refresh_atoms()
 
@@ -186,6 +191,7 @@ class Database(object):
 		return splits
 
 
+	
 	
 	'''
 		Read the file and return (img,label,success,meta).
@@ -278,11 +284,15 @@ class Database(object):
 		
 		def write(self,phase,filters):
 			self.hdf5_organizer.build_patch_array(phase,'filename',self.database.filenameAtom)
+			self.hdf5_organizer.build_patch_array(phase,'valid',self.database.validAtom)
+			self.hdf5_organizer.build_patch_array(phase,'split',self.database.splitAtom)
 			with self.hdf5_organizer.pytables[phase]:	
 				self.database.refresh_atoms()
 				self._create_h5array_by_types(phase,filters)
 				self._fetch_all_files(phase)
 				self.weight_writer.write_classweight_to_db(self.hdf5_organizer,phase)		
+				#self.database.splits
+				self.hdf5_organizer.h5arrays[phase]['split'].append(self.database.splits[phase])
 			
 		def _create_h5array_by_types(self,phase,filters):
 			for category_typetype in self.types:
@@ -293,11 +303,13 @@ class Database(object):
 				for file_id in tqdm(self.database.splits[phase]):
 					file = self.database.filelist[file_id]
 					(patches[self.types[0]],patches[self.types[1]],isValid,extra_information) = self.data_extractor.extract(file)
-					if (isValid):
+					if (any(list(isValid)) or self.database.write_invalid):
 						self.hdf5_organizer.write_data_to_array(phase,patches,self.datasize)
 						self.weight_writer.weight_accumulate(file,patches[self.types[0]],patches[self.types[1]],extra_information)
 						self.hdf5_organizer.write_file_names_to_array(phase,file,patches,category_type = "filename")
-						
+						self.hdf5_organizer.h5arrays[phase]['valid'].append(isValid)
+
+						...
 					else:
 						#do nothing. leave it blank here for: (1) test. (2) future works
 						...	

@@ -50,17 +50,25 @@ def getBackground(img_gray,params):
 def qualification_no_background_helper(patch,tissue_threshold_ratio):
 	return (not patch.size<=0) and (np.count_nonzero(patch)/patch.size>=(tissue_threshold_ratio) )
 
-def patch_qualification(patch_sanitized,tissue_threshold_ratio = 0.95):
+def patch_qualification(patch_sanitized,tissue_threshold_ratio = 0.95,write_invalid = False):
 	idx_qualified = []
+	#valid_tag = np.zeros
 	for (idx,patch) in enumerate(patch_sanitized):
 		#patch with 95%(default) non-zero pixels - add idx to patch candididates
 		if qualification_no_background_helper(patch,tissue_threshold_ratio):
 			idx_qualified.append(idx)
-	return patch_sanitized[idx_qualified]
+	if not write_invalid:
+		result_patch = patch_sanitized[idx_qualified]
+		valid_tag = np.ones(result_patch.shape[0]).astype(np.bool)
+	else:
+		result_patch = patch_sanitized
+		valid_tag = np.zeros(result_patch.shape[0]).astype(np.bool)
+		valid_tag[idx_qualified] = True
+	return result_patch,valid_tag
 def background_sanitize(obj,image):
 	img_gray = rgb2gray(image)
 	params =  {}
-	params['variance'] = getattr(obj.meta,'bg_var', 32)
+	params['variance'] = getattr(obj.meta,'bg_var', 20)
 	params['smooth_thresh'] = getattr(obj.meta,'bg_smooth_thresh', 0.03)
 	background,mask = getBackground(img_gray,params) #- pixel 1/True is the background part
 	image[mask==1] = 0
@@ -106,7 +114,7 @@ def extractor_patch_classification(obj,file):
 	image_whole_sanitized = background_sanitize(obj,image_whole)
 	data_image_sanitized  = generate_patch(obj,image_whole_sanitized,type = 'img')
 	
-	data_image_qualified= patch_qualification(data_image_sanitized,obj.meta.tissue_area_thresh) 
+	data_image_qualified, valid_tag = patch_qualification(data_image_sanitized,tissue_threshold_ratio = obj.meta.tissue_area_thresh,write_invalid = obj.database.write_invalid ) 
 	data_label = [classid for x in range(data_image_qualified.shape[0])]
-	return (data_image_qualified,data_label,True,None)
+	return (data_image_qualified,data_label,valid_tag,None)
 
