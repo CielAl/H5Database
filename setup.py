@@ -2,7 +2,7 @@ from setuptools import setup
 
 __VERSION__ = '0.2.2'
 
-setup(name='adabound',
+setup(name='h5database',
 	version=__VERSION__,
 	description='HDF5 Database for Images',
 	long_description=open("README.md").read(),
