@@ -20,7 +20,7 @@ setup(name='h5database',
 	packages=['h5database'],
 	install_requires=[
 	'tables>=3.4.4',
-	'sklearn>=0.20.2',
+	'scikit-learn>=0.20.2',
 	'numpy>=1.14.5'
 	],
 	zip_safe=False,
