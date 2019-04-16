@@ -21,7 +21,10 @@ setup(name='h5database',
 	install_requires=[
 	'tables>=3.4.4',
 	'scikit-learn>=0.20.2',
-	'numpy>=1.14.5'
+	'numpy>=1.14.5',
+	'tqdm>=4.28.1',
+	'lazy_property>=0.0.1',
+	'pillow>=5.4.0',
 	],
 	zip_safe=False,
 	python_requires='>=3.6.0')
