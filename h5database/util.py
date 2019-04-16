@@ -124,11 +124,7 @@ class WeightCollector(DatabaseNested):
 		#weight_counter_func is callback - manually pass the associated database as its 1st arg
 		return self.weight_counter_func(self,totals,file,img,label,extra_information)
 
-def _init_atoms(self,row_atom_func,data_shape_dict):
-	atoms = {}
-	for k,v in data_shape_dict.items():
-			atoms[k] = row_atom_func(shape = tuple(v))
-	return atoms
+
 
 class H5Organizer(DatabaseNested):
 	LEVEL_PATCH = 0

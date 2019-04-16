@@ -136,6 +136,12 @@ class Database(object):
 	def validate_shape_key(self,data_shape):
 		assert(sorted(list(self.data_shape.keys())) == sorted(self.types))
 
+	def _init_atoms(self,row_atom_func,data_shape_dict):
+		atoms = {}
+		for k,v in data_shape_dict.items():
+				atoms[k] = row_atom_func(shape = tuple(v))
+		return atoms
+		
 	def refresh_atoms(self):
 		self._atoms = self._init_atoms(self.row_atom_func,self.data_shape)
 		return self._atoms
