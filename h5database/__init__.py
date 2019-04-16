@@ -10,7 +10,7 @@ import os
 #patch extraction and dataset split: Use 1 pair of train-validation to due to limitation of time
 from sklearn import model_selection
 
-
+import tables
 import random
 from lazy_property import LazyProperty
 
