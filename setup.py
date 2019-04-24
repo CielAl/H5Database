@@ -25,6 +25,7 @@ setup(name='h5database',
 	'tqdm>=4.28.1',
 	'lazy_property>=0.0.1',
 	'pillow>=5.4.0',
+	'joblib>=0.13.2',
 	],
 	zip_safe=False,
 	python_requires='>=3.6.0')
