@@ -64,11 +64,12 @@ def patch_qualification(patch_sanitized,tissue_threshold_ratio = 0.95,write_inva
 		result_patch = patch_sanitized
 		valid_tag = np.zeros(result_patch.shape[0]).astype(np.bool)
 		valid_tag[idx_qualified] = True
+	#print(result_patch.shape[0])
 	return result_patch,valid_tag
 def background_sanitize(obj,image):
 	img_gray = rgb2gray(image)
 	params =  {}
-	params['variance'] = getattr(obj.meta,'bg_var', 20)
+	params['variance'] = getattr(obj.meta,'bg_var', 10)
 	params['smooth_thresh'] = getattr(obj.meta,'bg_smooth_thresh', 0.03)
 	background,mask = getBackground(img_gray,params) #- pixel 1/True is the background part
 	image[mask==1] = 0
@@ -104,7 +105,7 @@ def extractor_patch_classification(obj,file):
 		image_whole = np.pad(image_whole, [(mirror_pad_size, mirror_pad_size), (mirror_pad_size, mirror_pad_size), (0, 0)], mode="reflect")
 	#discard patches that are too small - mistakes of annotations?
 	if image_whole.shape[0]<obj.database.data_shape['img'][0] or image_whole.shape[1]<obj.database.data_shape['img'][1]:
-		return (None,None,False,None)
+		return (None,None,[False],None)
 
 	if hasattr(obj.meta,'mask_dir') and obj.meta.mask_dir is not None:
 		#combine masks
@@ -116,5 +117,6 @@ def extractor_patch_classification(obj,file):
 	
 	data_image_qualified, valid_tag = patch_qualification(data_image_sanitized,tissue_threshold_ratio = obj.meta.tissue_area_thresh,write_invalid = obj.database.write_invalid ) 
 	data_label = [classid for x in range(data_image_qualified.shape[0])]
+	#print(valid_tag)
 	return (data_image_qualified,data_label,valid_tag,None)
 
