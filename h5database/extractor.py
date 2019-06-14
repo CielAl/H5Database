@@ -1,122 +1,114 @@
-from sklearn import model_selection
+from abc import ABC, abstractmethod
 from sklearn.feature_extraction.image import extract_patches
+from typing import Tuple, Dict, Iterable
 import cv2
-from skimage.color import rgb2gray
-import numpy as np 
-import os
-
-import PIL
+from operator import mul
+from functools import reduce
+import numpy as np
 import skimage
+from .util import DataExtractor
+import types
+import PIL
 import re
-'''
-	takes	Extractor object, file
-	return img, mask(or label), isvalid, extra_inforamtion
-'''
-
-def srcnn_img_label_pair(obj,file):
-	img = cv2.imread(file,cv2.COLOR_BGR2RGB)
-	img_down = cv2.resize(img,(0,0),fx=obj.meta.resize,fy=obj.meta.resize, interpolation=obj.meta.interp)
-	#the shape is (y,x) while cv2.resize requires (x,y)
-	img_down = cv2.resize(img_down,(img.shape[1],img.shape[0]),interpolation=obj.meta.interp)
-	return img,img_down
-
-def generate_patch(obj,image,type = 'img'):
-	patches_label= extract_patches(image,obj.database.data_shape[type],obj.meta.stride_size)
-	patches_label = patches_label.reshape((-1,)+obj.database.data_shape[type])
-	return patches_label
-
-#image label
-def extractor_super_resolution(obj,file):
-	img_truth,img_down = srcnn_img_label_pair(obj,file)
-	image = generate_patch(obj,img_down,'img')
-	label = generate_patch(obj,img_truth,'label')
-	return (image,label,True,None)
-
-	
-
-	
-#############
+from .database import Database
+import os
+from skimage.color import rgb2gray
 
 
+class ExtractCallable(ABC):
 
-def getBackground(img_gray,params):
-	img_laplace = np.abs(skimage.filters.laplace(img_gray))
-	mask = skimage.filters.gaussian(img_laplace, sigma=params.get("variance") <= params.get("smooth_thresh"))
-	background = (mask!=0) * img_gray
-	background[mask==0] = 1# background[mask_background].mean()
-	return background,mask
+    @staticmethod
+    def patch_numbers(patches, n_dims: int = 3):
+        return patches.size / reduce(mul, patches.shape[-n_dims:])
+
+    @staticmethod
+    def validate_shape(patch_groups, type_order, data_shape):
+        n_dims = tuple(len(data_shape[x]) for x in type_order)
+        validation_result = tuple(patches.shape[-num_dimension:] == data_shape[type_name]
+                                  for (patches, num_dimension, type_name) in zip(patch_groups, n_dims, type_order))
+        assert np.asarray(validation_result).all(), f"Shape mismatched:" \
+            f"{list(patches.shape for patches in patch_groups)}. Expect: {data_shape}"
+
+    @staticmethod
+    def extract_patch(image: np.ndarray, patch_shape: Tuple[int, ...], stride: int, flatten: bool = True):
+        patches = extract_patches(image, patch_shape, stride)
+        if flatten:
+            patches = patches.reshape((-1,) + patch_shape)
+        return patches
+
+    @staticmethod
+    def get_background_by_contrast(img_gray: np.ndarray, sigma: float = 5, smooth_thresh: float = 0.03):
+        img_laplace = np.abs(skimage.filters.laplace(img_gray))
+        # background region has low response: smaller smooth_thresh --> more strict criteria to spot background
+        # sigma --> radius. Larger sigma --> more loose.
+        mask = skimage.filters.gaussian(img_laplace, sigma=sigma) <= smooth_thresh
+        background = (mask != 0) * img_gray
+        background[mask == 0] = 1  # background[mask_background].mean()
+        return background, mask
+
+    @staticmethod
+    @abstractmethod
+    def extractor(obj: DataExtractor, file: str, patch_types: Iterable[str], data_shape: Dict[str, Tuple[int, ...]],
+                  **kwargs) -> Tuple[Tuple[object, ...], Iterable[bool], Iterable[str], object]:
+        ...
+
+    @classmethod
+    def __call__(cls, obj: DataExtractor, file: str) \
+            -> Tuple[Tuple[object, ...], Iterable[bool], Iterable[str], object]:
+        if isinstance(obj.meta, types.SimpleNamespace):
+            params = obj.meta.__dict__
+        else:
+            params = obj.meta
+        patch_types = obj.database.types
+        patch_shape = params['data_shape']
+        output: Tuple[Tuple[object, ...], Iterable[bool], Iterable[str], object] = \
+            cls.extractor(obj, file, patch_types, patch_shape, **params)
+        out_data, is_valid, type_order, extra_info = output
+
+        assert len(out_data) == len(patch_types), f"Number of returned data type mismatched" \
+            f"Got:{len(out_data)}vs. Expect:{len(patch_types)}"
+
+        cls.validate_shape(out_data, type_order, patch_shape)
+        num_patch_group = tuple(cls.patch_numbers(patches, n_dims=len(patch_shape[type_name]))
+                                for (patches, type_name) in zip(out_data, type_order))
+        assert (~np.diff(num_patch_group)).all(), f"Number of patches across types mismatched. " \
+            f"Got:{num_patch_group}, Types:{type_order}"
+        return output
 
 
-def qualification_no_background_helper(patch,tissue_threshold_ratio):
-	return (not patch.size<=0) and (np.count_nonzero(patch)/patch.size>=(tissue_threshold_ratio) )
+class ExtSuperResolution(ExtractCallable):
 
-def patch_qualification(patch_sanitized,tissue_threshold_ratio = 0.95,write_invalid = False):
-	idx_qualified = []
-	#valid_tag = np.zeros
-	for (idx,patch) in enumerate(patch_sanitized):
-		#patch with 95%(default) non-zero pixels - add idx to patch candididates
-		if qualification_no_background_helper(patch,tissue_threshold_ratio):
-			idx_qualified.append(idx)
-	if not write_invalid:
-		result_patch = patch_sanitized[idx_qualified]
-		valid_tag = np.ones(result_patch.shape[0]).astype(np.bool)
-	else:
-		result_patch = patch_sanitized
-		valid_tag = np.zeros(result_patch.shape[0]).astype(np.bool)
-		valid_tag[idx_qualified] = True
-	#print(result_patch.shape[0])
-	return result_patch,valid_tag
-def background_sanitize(obj,image):
-	img_gray = rgb2gray(image)
-	params =  {}
-	params['variance'] = getattr(obj.meta,'bg_var', 10)
-	params['smooth_thresh'] = getattr(obj.meta,'bg_smooth_thresh', 0.03)
-	background,mask = getBackground(img_gray,params) #- pixel 1/True is the background part
-	image[mask==1] = 0
-	return image
+    # override
+    @staticmethod
+    def extractor(obj: DataExtractor, file: str, data_shape: Dict[str, Tuple[int, ...]], **kwargs)\
+            -> Tuple[Tuple[object, ...], Iterable[bool], Iterable[str], object]:
+        resize = kwargs['resize']
+        interp = kwargs['interp']
+        stride_size = kwargs['stride_size']
+        flatten = kwargs.get('flatten', True)
 
-def get_mask_name_default(obj,img_name_pattern):
-	img_name = img_name_pattern[0]
-	suffix = getattr(obj.meta,'mask_suffix','_mask')
-	type = getattr(obj.meta,'mask_ext','png')
-	full_maskname = f"{img_name}{suffix}.{type}"
-	return full_maskname
-	
-#note: no multi
-def mask_screening(obj,file,image):
-	basename = os.path.basename(file) 
-	filename_pattern = os.path.splitext(basename)
-	mask_name_func = getattr(obj.meta,'mask_name_getter',get_mask_name_default)
-	maskname = mask_name_func(obj,filename_pattern)
-	mask_fullpath = os.path.join(obj.meta.mask_dir,maskname)
-	mask = cv2.imread(mask_fullpath).astype(int)
-	#print(mask.shape)
-	#print(image.shape)
-	image[mask<=0] = 0
-	return image
+        img = cv2.imread(file, cv2.COLOR_BGR2RGB)
+        img_down = cv2.resize(img, (0, 0), fx=resize, fy=resize, interpolation=interp)
+        img_low_resolution = cv2.resize(img_down, (img.shape[1], img.shape[0]), interpolation=interp)
 
-def extractor_patch_classification(obj,file):
-	basename = os.path.basename(file) 
-	classid=[idx for idx in range(len(obj.database.classes)) if re.search(obj.database.classes[idx],basename,re.IGNORECASE)][0]
-	image_whole = cv2.cvtColor(cv2.imread(file),cv2.COLOR_BGR2RGB)
-	image_whole = cv2.resize(image_whole,(0,0),fx=obj.meta.resize,fy=obj.meta.resize, interpolation=PIL.Image.NONE)
-	if obj.meta.mirror_padding and min(image_whole.shape[0:-1])<= obj.database.data_shape['img'][0]:
-		mirror_pad_size = obj.meta.mirror_pad_size
-		image_whole = np.pad(image_whole, [(mirror_pad_size, mirror_pad_size), (mirror_pad_size, mirror_pad_size), (0, 0)], mode="reflect")
-	#discard patches that are too small - mistakes of annotations?
-	if image_whole.shape[0]<obj.database.data_shape['img'][0] or image_whole.shape[1]<obj.database.data_shape['img'][1]:
-		return (None,None,[False],None)
+        data_order = [img_low_resolution, img]
+        type_order = ['img', 'label']
+        patches = tuple(ExtractCallable.extract_patch(data_source, data_shape[type_key], stride_size,
+                                                      flatten=flatten)
+                        for (data_source, type_key) in zip(data_order, type_order)
+                        )
 
-	if hasattr(obj.meta,'mask_dir') and obj.meta.mask_dir is not None:
-		#combine masks
-		image_whole = mask_screening(obj,file,image_whole)
+        # shape[-3:end] is the size of a single patch, regardless of flatten
+        num_patches = ExtractCallable.patch_numbers(patches[0], n_dims=len(data_shape[type_order[0]]))
+        is_valid = np.ones(num_patches, dtype=np.bool)
+        extra_info = None
+        return patches, is_valid, type_order, extra_info
 
-	#make background pixel strictly 0
-	image_whole_sanitized = background_sanitize(obj,image_whole)
-	data_image_sanitized  = generate_patch(obj,image_whole_sanitized,type = 'img')
-	
-	data_image_qualified, valid_tag = patch_qualification(data_image_sanitized,tissue_threshold_ratio = obj.meta.tissue_area_thresh,write_invalid = obj.database.write_invalid ) 
-	data_label = [classid for x in range(data_image_qualified.shape[0])]
-	#print(valid_tag)
-	return (data_image_qualified,data_label,valid_tag,None)
 
+class ExtTissueByMask(ExtractCallable):
+
+    # override
+    @staticmethod
+    def extractor(obj: DataExtractor, file: str, data_shape: Dict[str, Tuple[int, ...]], **kwargs) \
+            -> Tuple[Tuple[object, ...], Iterable[bool], object]:
+        ...
