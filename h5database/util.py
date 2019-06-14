@@ -3,6 +3,7 @@ from tqdm import tqdm
 import numpy as np
 import PIL
 import tables
+from typing import Dict
 
 
 class DatabaseNested(object):
@@ -39,8 +40,8 @@ class TaskDispatcher(DatabaseNested):
             self.hdf5_organizer.h5arrays[phase]['split'].append(self.database.splits[phase])
 
     def _create_h5array_by_types(self, phase, filters):
-        for category_typetype in self.types:
-            self.hdf5_organizer.build_patch_array(phase, category_typetype, self.database.atoms[category_typetype],
+        for category_type in self.types:
+            self.hdf5_organizer.build_patch_array(phase, category_type, self.database.atoms[category_type],
                                                   filters)
 
     def _fetch_all_files(self, phase):
@@ -49,7 +50,7 @@ class TaskDispatcher(DatabaseNested):
             file = self.database.filelist[file_id]
             (patches[self.types[0]], patches[self.types[1]], isValid, extra_information) = self.data_extractor.extract(
                 file)
-            if (any(list(isValid)) or self.database.write_invalid):
+            if any(list(isValid)) or self.database.write_invalid:
                 self.hdf5_organizer.write_data_to_array(phase, patches, self.data_size)
                 self.weight_writer.weight_accumulate(file, patches[self.types[0]], patches[self.types[1]],
                                                      extra_information)
@@ -64,7 +65,7 @@ class TaskDispatcher(DatabaseNested):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type_name, value, traceback):
         self.flush()
 
     def flush(self):
@@ -75,7 +76,7 @@ class TaskDispatcher(DatabaseNested):
 class DataExtractor(DatabaseNested):
     def __init__(self, database):
         super().__init__(database)
-        self.meta = self._default_meta(self.database.meta)
+        self.meta = type(self)._default_meta(self.database.meta)
         self._meta_load_database(self.database.meta)
 
     def _meta_load_database(self, database: Database):
@@ -83,7 +84,8 @@ class DataExtractor(DatabaseNested):
         self.meta.update({'data_shape': database.data_shape})
 
     # part of common default values
-    def _default_meta(self, meta):
+    @classmethod
+    def _default_meta(cls, meta):
         meta['stride_size'] = meta.get('stride_size', 128)
         meta['tissue_area_thresh'] = meta.get('tissue_area_thresh', 0.95)
         meta['interp'] = meta.get('interp', PIL.Image.NONE)
@@ -96,7 +98,7 @@ class DataExtractor(DatabaseNested):
 
 
 '''
-	Weight.
+   Weight.
 '''
 
 
@@ -144,14 +146,14 @@ class H5Organizer(DatabaseNested):
 
     def __init__(self, database, group_level):
         super().__init__(database)
-        self._h5arrays = self._empty_h5arrays_dict(self.phases, self.types)
+        self._h5arrays = type(self)._empty_h5arrays_dict(self.phases, self.types)
         self._pytables = self._new_pytables_from_database(self.phases)
         self.group_level = group_level
 
     def flush(self, phase):
-        for type, h5array in self._h5arrays[phase].items():
-            self._h5arrays[phase][type] = []
-        self._h5arrays[phase] = []
+        for type_name, h5array in self._h5arrays[phase].items():
+            self._h5arrays[phase][type_name] = None
+        self._h5arrays[phase] = dict()
         self.pytables[phase].close()
 
     @property
@@ -166,6 +168,7 @@ class H5Organizer(DatabaseNested):
     def atoms(self):
         return self.database.atoms
 
+    # noinspection PyPep8Naming
     @property
     def filenameAtom(self):
         return self.database.filenameAtom
@@ -178,16 +181,17 @@ class H5Organizer(DatabaseNested):
     def types(self):
         return self.database.types
 
-    def _get_h5_shapes(self, chunk_width):
+    @staticmethod
+    def _get_h5_shapes(chunk_width):
         chunk_shape = [chunk_width]
         h5_shape = [0]
-        return (h5_shape, chunk_shape)
+        return h5_shape, chunk_shape
 
     '''Precondition:h5arrays and pytables initialized/created
     '''
 
     def build_patch_array(self, phase, category_type, atom, filters=None, expected_rows=None):
-        h5_shape, chunk_shape = self._get_h5_shapes(self.database.chunk_width)
+        h5_shape, chunk_shape = type(self)._get_h5_shapes(self.database.chunk_width)
 
         params = {
             'atom': atom,
@@ -216,25 +220,27 @@ class H5Organizer(DatabaseNested):
         return self.h5arrays[phase][category_type]
 
     def write_data_to_array(self, phase, patches_dict, datasize=None):
-        for type in self.types:
-            self.h5arrays[phase][type].append(patches_dict[type])
+        for type_name in self.types:
+            self.h5arrays[phase][type_name].append(patches_dict[type_name])
             if datasize is not None:
-                datasize[type] = datasize.get(type, 0) + np.asarray(patches_dict[type]).shape[0]
+                datasize[type_name] = datasize.get(type_name, 0) + np.asarray(patches_dict[type_name]).shape[0]
 
     def write_file_names_to_array(self, phase, file, patches, category_type="filename"):
         if patches and (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None):
-            filename_list = [file for x in range(patches[self.types[0]].shape[0])]
+            # [file for x in range(patches[self.types[0]].shape[0])]
+            filename_list = [file] * patches[self.types[0]].shape[0]
             if filename_list:
                 self.h5arrays[phase][category_type].append(filename_list)
             else:
                 ...  # do nothing. leave it here for tests
 
-    def _empty_h5arrays_dict(self, phases, types):
-        h5arrays = {}
+    @staticmethod
+    def _empty_h5arrays_dict(phases, types) -> Dict[str, Dict]:
+        h5arrays = dict()
         for phase in phases:
             h5arrays[phase] = {}
-            for type in types:
-                h5arrays[phase][type] = None
+            for type_name in types:
+                h5arrays[phase][type_name] = None
         return h5arrays
 
     def _new_pytables_from_database(self, phases):
