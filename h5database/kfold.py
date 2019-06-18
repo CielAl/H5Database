@@ -1,6 +1,6 @@
-from . import database
+import h5database.skeletal.abstract_database
 from .database import Database
-from .split import Split
+from h5database.common.split import Split
 import os
 
 
@@ -19,11 +19,15 @@ class KFold(object):
         self.generate_split(stratified_labels=stratified_labels)
 
     def generate_split(self, stratified_labels=None):
-        self.split = list(Split.k_fold_database(self.data_set, stratified_labels=stratified_labels))
+        self.split = list(
+            Split.k_fold_split(self.num_fold, shuffle=self.shuffle, file_list=self.data_set.file_list,
+                               stratified_labels=stratified_labels, )
+        )
 
     def run(self):
         for fold in range(self.num_fold):
             # redefine split
             self.data_set.export_dir = os.path.join(self.root_dir, str(fold))
-            self.data_set.splits[database.train_name], self.data_set.splits[database.train_name] = self.split[fold]
+            self.data_set.splits[h5database.skeletal.AbstractDB.train_name()], self.data_set.splits[
+                h5database.skeletal.AbstractDB.val_name()] = self.split[fold]
             self.data_set.initialize(force_overwrite=False)

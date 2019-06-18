@@ -1,26 +1,34 @@
-from .database import Database
 from tqdm import tqdm
 import numpy as np
 import PIL
 import tables
-from typing import Dict
+from typing import Dict, Tuple, Sequence
+from h5database.skeletal import AbstractDB, ExtractCallable
 
 
-class DatabaseNested(object):
-    def __init__(self, database):
+class DbHelper(object):
+    def __init__(self, database: AbstractDB):
         self._database = database
 
     @property
-    def database(self):
+    def database(self) -> AbstractDB:
         return self._database
 
 
-class TaskDispatcher(DatabaseNested):
-    def __init__(self, database):
+class TaskManager(DbHelper):
+    def __init__(self, database: AbstractDB):
         super().__init__(database)
+        self.filenameAtom = tables.StringAtom(itemsize=255)
+        # whether the patch is valid.
+        self.validAtom = tables.BoolAtom(shape=(), dflt=False)
+        # save the meta info: split
+        # noinspection PyArgumentList
+        self.splitAtom = tables.IntAtom(shape=(), dflt=False)
+
         self.hdf5_organizer = H5Organizer(self.database, self.database.group_level)
         self.data_extractor = DataExtractor(self.database)
-        self.weight_writer = WeightCollector(self.database, weight_counter=self.database.weight_counter_func)
+        self.weight_writer = WeightCollector(self.database, self.data_extractor,
+                                             weight_counter=self.database.weight_counter_callable)
         self.data_size = {}
 
     @property
@@ -28,9 +36,9 @@ class TaskDispatcher(DatabaseNested):
         return self.database.types
 
     def write(self, phase, filters):
-        self.hdf5_organizer.build_patch_array(phase, 'filename', self.database.filenameAtom)
-        self.hdf5_organizer.build_patch_array(phase, 'valid', self.database.validAtom)
-        self.hdf5_organizer.build_patch_array(phase, 'split', self.database.splitAtom)
+        self.hdf5_organizer.build_patch_array(phase, 'filename', self.filenameAtom)
+        self.hdf5_organizer.build_patch_array(phase, 'valid', self.validAtom)
+        self.hdf5_organizer.build_patch_array(phase, 'split', self.splitAtom)
         with self.hdf5_organizer.pytables[phase]:
             self.database.refresh_atoms()
             self._create_h5array_by_types(phase, filters)
@@ -44,18 +52,20 @@ class TaskDispatcher(DatabaseNested):
             self.hdf5_organizer.build_patch_array(phase, category_type, self.database.atoms[category_type],
                                                   filters)
 
+    def __fetch_data(self, file: str):
+        patches_group, valid_tag, type_order, extra_info = self.data_extractor.extract(file)
+        patches: Dict[str, Tuple] = {type_name: data for (type_name, data) in zip(type_order, patches_group)}
+        return patches, valid_tag, extra_info
+
     def _fetch_all_files(self, phase):
-        patches = {}
         for file_id in tqdm(self.database.splits[phase]):
-            file = self.database.filelist[file_id]
-            (patches[self.types[0]], patches[self.types[1]], isValid, extra_information) = self.data_extractor.extract(
-                file)
-            if any(list(isValid)) or self.database.write_invalid:
+            file = self.database.file_list[file_id]
+            patches, valid_tag, extra_info = self.__fetch_data(file)
+            if any(list(valid_tag)) or self.database.write_invalid:
                 self.hdf5_organizer.write_data_to_array(phase, patches, self.data_size)
-                self.weight_writer.weight_accumulate(file, patches[self.types[0]], patches[self.types[1]],
-                                                     extra_information)
+                self.weight_writer.weight_accumulate(file, self.types, patches, extra_info)
                 self.hdf5_organizer.write_file_names_to_array(phase, file, patches, category_type="filename")
-                self.hdf5_organizer.h5arrays[phase]['valid'].append(isValid)
+                self.hdf5_organizer.h5arrays[phase]['valid'].append(valid_tag)
 
                 ...
             else:
@@ -73,15 +83,20 @@ class TaskDispatcher(DatabaseNested):
             self.hdf5_organizer.flush(phase)
 
 
-class DataExtractor(DatabaseNested):
-    def __init__(self, database):
+class DataExtractor(DbHelper):
+    def __init__(self, database: AbstractDB):
         super().__init__(database)
+        self._extract_callable: ExtractCallable = database.extract_callable
         self.meta = type(self)._default_meta(self.database.meta)
-        self._meta_load_database(self.database.meta)
+        self._meta_load_database(self.database)
 
-    def _meta_load_database(self, database: Database):
+    def _meta_load_database(self, database: AbstractDB):
         assert hasattr(database, 'data_shape'), "data_shape uninitialized"
         self.meta.update({'data_shape': database.data_shape})
+
+    @property
+    def extract_callable(self):
+        return self._extract_callable
 
     # part of common default values
     @classmethod
@@ -93,8 +108,8 @@ class DataExtractor(DatabaseNested):
         # meta = SimpleNamespace(**meta)
         return meta
 
-    def extract(self, file):
-        return self.database.patch_pair_extractor_func(self, file)
+    def extract(self, file) -> Tuple[Tuple[object, ...], Sequence[bool], Sequence[str], object]:
+        return self.extract_callable(self, file)
 
 
 '''
@@ -102,11 +117,16 @@ class DataExtractor(DatabaseNested):
 '''
 
 
-class WeightCollector(DatabaseNested):
-    def __init__(self, database, **kwargs):
+class WeightCollector(DbHelper):
+    def __init__(self, database: AbstractDB, extractor: DataExtractor, **kwargs):
         super().__init__(database)
-        self.weight_counter_func = kwargs.get('weight_counter', self.database.weight_counter_func)
+        self.weight_counter_callable = kwargs.get('weight_counter', self.database.weight_counter_callable)
         self._totals = self._new_weight_storage()
+        self._extractor = extractor
+
+    @property
+    def extractor(self):
+        return self._extractor
 
     @property
     def totals(self):
@@ -115,13 +135,14 @@ class WeightCollector(DatabaseNested):
     def is_count_weight(self):
         return self.database.enable_weight and self.database.classes is not None
 
-    def weight_accumulate(self, file, img, label, extra_information):
+    def weight_accumulate(self, file: str, type_names: Sequence[str],
+                          patch_group: Dict[str, object], extra_information):
         if self.is_count_weight():
-            self.count_weight(self._totals,
-                              file,
-                              img,
-                              label,
-                              extra_information)
+            self.weight_counter_callable(self,
+                                         file,
+                                         type_names,
+                                         patch_group,
+                                         extra_information)
 
     def _new_weight_storage(self):
         if self.is_count_weight():
@@ -135,16 +156,12 @@ class WeightCollector(DatabaseNested):
             npixels = hdf5_organizer.build_statistics(phase, 'class_sizes', self.totals)
             npixels[:] = self.totals
 
-    def count_weight(self, totals, file, img, label, extra_information):
-        # weight_counter_func is callback - manually pass the associated database as its 1st arg
-        return self.weight_counter_func(self, totals, file, img, label, extra_information)
 
-
-class H5Organizer(DatabaseNested):
+class H5Organizer(DbHelper):
     LEVEL_PATCH = 0
     LEVEL_GROUP = 1
 
-    def __init__(self, database, group_level):
+    def __init__(self, database: AbstractDB, group_level):
         super().__init__(database)
         self._h5arrays = type(self)._empty_h5arrays_dict(self.phases, self.types)
         self._pytables = self._new_pytables_from_database(self.phases)
@@ -167,11 +184,6 @@ class H5Organizer(DatabaseNested):
     @property
     def atoms(self):
         return self.database.atoms
-
-    # noinspection PyPep8Naming
-    @property
-    def filenameAtom(self):
-        return self.database.filenameAtom
 
     @property
     def phases(self):
@@ -219,20 +231,24 @@ class H5Organizer(DatabaseNested):
                                                                                  data.shape)
         return self.h5arrays[phase][category_type]
 
+    # todo
     def write_data_to_array(self, phase, patches_dict, datasize=None):
         for type_name in self.types:
             self.h5arrays[phase][type_name].append(patches_dict[type_name])
+            # write size of data into h5 - todo
             if datasize is not None:
                 datasize[type_name] = datasize.get(type_name, 0) + np.asarray(patches_dict[type_name]).shape[0]
 
+    # todo
     def write_file_names_to_array(self, phase, file, patches, category_type="filename"):
-        if patches and (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None):
+        # (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None)
+        if patches and all([patches[type_name] is not None for type_name in self.types]):
             # [file for x in range(patches[self.types[0]].shape[0])]
             filename_list = [file] * patches[self.types[0]].shape[0]
             if filename_list:
                 self.h5arrays[phase][category_type].append(filename_list)
             else:
-                ...  # do nothing. leave it here for tests
+                ...  # do nothing. leave it here for tests - todo
 
     @staticmethod
     def _empty_h5arrays_dict(phases, types) -> Dict[str, Dict]:
@@ -246,7 +262,7 @@ class H5Organizer(DatabaseNested):
     def _new_pytables_from_database(self, phases):
         pytables = {}
         for phase in phases:
-            pytable_fullpath, pytable_dir = self.database.generate_table_name(phase)
+            pytable_full_path, pytable_dir = self.database.generate_table_name(phase)
             type(self.database).prepare_export_directory(pytable_dir)
-            pytables[phase] = tables.open_file(pytable_fullpath, mode='w')
+            pytables[phase] = tables.open_file(pytable_full_path, mode='w')
         return pytables

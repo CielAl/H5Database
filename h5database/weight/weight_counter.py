@@ -1,0 +1,31 @@
+import os
+import re
+from h5database.skeletal import WeightCounterCallable
+from typing import Sequence, Dict,Sized
+from h5database.database.helper import WeightCollector
+
+
+class WeightFile(WeightCounterCallable):
+
+    # override
+    @staticmethod
+    def __count(collector: WeightCollector, file, patch_group, type_names: Sequence[str] = None, extra_info=None):
+        label_key: str = collector.extractor.extract_callable.label_key()
+        label = patch_group[label_key]
+        basename = os.path.basename(file)
+        class_list = [idx for idx in range(len(collector.database.classes)) if
+                      re.search(str(collector.database.classes[idx]), basename, re.IGNORECASE)]
+        class_id = class_list[0]
+        collector.totals[class_id] += len(label)
+
+
+class WeightMaskPixelCallable(WeightCounterCallable):
+
+    # override
+    @staticmethod
+    def __count(collector: WeightCollector, file, patch_group: Dict,
+                type_names: Sequence[str] = None, extra_info=None):
+        label_key: str = collector.extractor.extract_callable.label_key()
+        label = patch_group[label_key]
+        for i, key in enumerate(collector.database.classes):
+            collector.totals[1, i] += sum(sum(label[:, :, 0] == key))
