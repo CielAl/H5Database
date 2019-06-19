@@ -41,8 +41,18 @@ class ExtractCallable(ABC):
 
     @staticmethod
     def extract_patch(image: np.ndarray, patch_shape: Tuple[int, ...], stride: int, flatten: bool = True):
+        assert not np.isscalar(image), f"does not support scalar input:{image}"
         if len(patch_shape) == 0:
             patch_shape = 1
+        print('image_shape', image.shape, patch_shape)
+        insufficient_size = (x < y for (x, y) in zip(image.shape, patch_shape))
+        if any(insufficient_size):
+            pad_size = tuple(
+                        (y-x)/2
+                        for (x, y) in zip(image.shape, patch_shape))
+
+            pad_size = tuple((np.ceil(x), np.floor(x)) for x in pad_size)
+            image = np.pad(image, pad_size, 'wrap')
         patches = extract_patches(image, patch_shape, stride)
         if flatten:
             patches = patches.reshape((-1,) + patch_shape)
