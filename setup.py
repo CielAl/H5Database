@@ -1,6 +1,6 @@
 from setuptools import setup
 
-__VERSION__ = '0.2.2'
+__VERSION__ = '0.3.0'
 
 setup(name='h5database',
       version=__VERSION__,
