@@ -15,13 +15,27 @@ class ExtractCallable(ABC):
     KEY_SHAPE = 'data_shape'
     @staticmethod
     def patch_numbers(patches, n_dims: int = 3) -> int:
-        return patches.size // reduce(mul, patches.shape[-n_dims:])
+        if patches.ndim < 2:  # row vectors
+            print('patch_num', patches, 'ndims', n_dims)
+            count = patches.shape[0]
+        else:
+            patch_size_product = reduce(mul, patches.shape[-n_dims:])
+            if patch_size_product == 0:  # empty
+                print('patch_num', patches, 'ndims', n_dims)
+                count = 0
+            else:
+                count = patches.size // patch_size_product
+        return count
 
     @staticmethod
     def validate_shape(patch_groups, type_order, data_shape):
         n_dims = tuple(len(data_shape[x]) for x in type_order)
+        print(tuple(data_shape[type_name] for type_name in type_order))
+        print(tuple(patches.shape for patches in patch_groups))
         validation_result = tuple(patches.shape[-num_dimension:] == data_shape[type_name]
+                                  or (len(data_shape[type_name]) < 1 and patches.ndim == 1)
                                   for (patches, num_dimension, type_name) in zip(patch_groups, n_dims, type_order))
+        print(validation_result)
         assert np.asarray(validation_result).all(), f"Shape mismatched:" \
             f"{list(patches.shape for patches in patch_groups)}. Expect: {data_shape}"
 
@@ -86,7 +100,7 @@ class ExtractCallable(ABC):
 
         assert len(out_data) == len(patch_types), f"Number of returned data type mismatched" \
             f"Got:{len(out_data)}vs. Expect:{len(patch_types)}"
-
+        print(type_order)
         cls.validate_shape(out_data, type_order, patch_shape)
         num_patch_group = tuple(cls.patch_numbers(patches, n_dims=len(patch_shape[type_name]))
                                 for (patches, type_name) in zip(out_data, type_order))

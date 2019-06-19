@@ -43,6 +43,7 @@ class ExtSuperResolution(ExtractCallable):
         stride_size = kwargs['stride_size']
         flatten = kwargs.get('flatten', True)
         type_order = ExtSuperResolution.type_order()
+        # todo if scalar
         patches = tuple(ExtractCallable.extract_patch(data_source, data_shape[type_key], stride_size,
                                                       flatten=flatten)
                         for (data_source, type_key) in zip(inputs, type_order)
@@ -57,15 +58,17 @@ class ExtSuperResolution(ExtractCallable):
 class ExtTissueByMask(ExtractCallable):
 
     @staticmethod
-    def get_mask_name_default(img_full_path: str, suffix: str = '_mask', extension: str = 'png'):
-        img_name = os.path.splitext(img_full_path)[0]
-        full_mask_name = f"{img_name}{suffix}.{extension}"
+    def get_mask_name(img_full_path: str, mask_dir: str, suffix: str = '_mask', extension: str = 'png'):
+        im_base_name = os.path.basename(img_full_path)
+        img_name_file_part = os.path.splitext(im_base_name)[0]
+        mask_name = f"{img_name_file_part}{suffix}.{extension}"
+        full_mask_name = os.path.join(mask_dir, mask_name)
         return full_mask_name
 
     # override
     @staticmethod
     def type_order() -> Sequence[str]:
-        return ['img', 'label', 'mask']
+        return ['img', 'mask', 'label']
 
     @staticmethod
     def _label_key_str() -> str:
@@ -74,25 +77,28 @@ class ExtTissueByMask(ExtractCallable):
     # override
     @staticmethod
     def get_inputs(obj: DataExtractor, file: str, patch_types: Sequence[str], data_shape: Dict[str, Tuple[int, ...]],
-                   **kwargs) -> Tuple[np.ndarray, object, np.ndarray]:
+                   **kwargs) -> Tuple[np.ndarray, np.ndarray, object]:
         resize = kwargs['resize']
         interp = kwargs.get('interp', PIL.Image.NONE)
         suffix = kwargs.get('mask_suffix', '_mask')
         extension = kwargs.get('mask_ext', 'png')
+        mask_dir = kwargs['mask_dir']
 
         image_whole = cv2.cvtColor(cv2.imread(file), cv2.COLOR_BGR2RGB)
         image_whole = cv2.resize(image_whole, (0, 0), fx=resize, fy=resize,
                                  interpolation=interp)
-        mask_name = ExtTissueByMask.get_mask_name_default(file, suffix=suffix, extension=extension)
+        mask_name = ExtTissueByMask.get_mask_name(file, mask_dir, suffix=suffix, extension=extension)
+        print(mask_name)
         mask_whole = cv2.cvtColor(cv2.imread(mask_name), cv2.COLOR_BGR2RGB)
         mask_whole = cv2.resize(mask_whole, (0, 0), fx=resize, fy=resize,
                                 interpolation=interp)
         basename = os.path.basename(file)
+        assert obj.database.classes is not None, 'Expect non-None classes'
         class_id = \
             [idx for idx in range(len(obj.database.classes)) if
              re.search(obj.database.classes[idx], basename, re.IGNORECASE)][
                 0]
-        return image_whole, class_id, mask_whole
+        return image_whole, mask_whole, class_id
 
     # override
     @staticmethod
@@ -103,15 +109,30 @@ class ExtTissueByMask(ExtractCallable):
         stride_size = kwargs['stride_size']
         flatten = kwargs.get('flatten', True)
         thresh = kwargs.get('tissue_area_thresh', 0)  # high pass
-        patches_im, labels, patches_mask = tuple(
+        patch_out = tuple(
                                                 ExtractCallable.extract_patch(groups, data_shape[type_key], stride_size,
                                                                               flatten=flatten)
                                                 for groups, type_key in zip(inputs, type_order)
+                                                if not np.isscalar(groups)
                                                  )
+        patches_im, patches_mask = patch_out
+        num_patches = ExtractCallable.patch_numbers(patch_out[0], n_dims=len(data_shape[type_order[0]]))
+        labels = np.asarray([inputs[-1]]*num_patches, dtype=np.int)
         # screen by mask
-        mask_axis = tuple(range(-1*len(data_shape[type_order[-1]])))
+        mask_axis = tuple(
+                            range(
+                                -1*len(data_shape[type_order[-2]]),
+                                0)
+                        )
+        print(len(data_shape[type_order[-2]]))
+        assert len(mask_axis) > 0
         valid_patch = patches_mask.mean(axis=mask_axis)
         valid_tag = valid_patch < thresh
+        print(patches_mask.shape)
+        print(valid_patch.shape)
+        print(valid_tag.shape)
+        print(patches_im.shape)
+        print(mask_axis)
         patches_im[valid_tag, :] = 0
         extra_info = None
-        return (patches_im, labels, patches_mask), valid_tag, type_order, extra_info
+        return (patches_im, patches_mask, labels), valid_tag, type_order, extra_info

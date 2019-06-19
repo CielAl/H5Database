@@ -9,11 +9,11 @@ class WeightCounterCallable(ABC):
     @classmethod
     def __call__(cls, collector: WeightCollector, file: str, type_names: Sequence[str],
                  patch_group: Dict, extra_info) -> np.ndarray:
-        cls.__count(collector, file, type_names, patch_group, extra_info)
+        cls._count(collector, file, type_names, patch_group, extra_info)
         return collector.totals
 
     @staticmethod
     @abstractmethod
-    def __count(collector: WeightCollector, file: str, type_names: Sequence[str],
-                patch_group: Dict, extra_info: object):
+    def _count(collector: WeightCollector, file: str, type_names: Sequence[str], patch_group: Dict,
+               extra_info: object):
         ...

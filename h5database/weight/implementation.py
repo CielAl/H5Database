@@ -9,7 +9,8 @@ class WeightFile(WeightCounterCallable):
 
     # override
     @staticmethod
-    def __count(collector: WeightCollector, file, patch_group, type_names: Sequence[str] = None, extra_info=None):
+    def _count(collector: WeightCollector, file: str, type_names: Sequence[str], patch_group: Dict,
+               extra_info: object):
         label_key: str = collector.extractor.extract_callable.label_key()
         label = patch_group[label_key]
         basename = os.path.basename(file)
@@ -23,8 +24,8 @@ class WeightMaskPixelCallable(WeightCounterCallable):
 
     # override
     @staticmethod
-    def __count(collector: WeightCollector, file, patch_group: Dict,
-                type_names: Sequence[str] = None, extra_info=None):
+    def _count(collector: WeightCollector, file: str, type_names: Sequence[str], patch_group: Dict,
+               extra_info: object):
         label_key: str = collector.extractor.extract_callable.label_key()
         label = patch_group[label_key]
         for i, key in enumerate(collector.database.classes):
