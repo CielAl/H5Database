@@ -63,9 +63,10 @@ class Database(AbstractDB):
     def __getitem__(self, phase_index_tuple):
         phase, index = phase_index_tuple
         with tables.open_file(self.generate_table_name(phase)[0], 'r') as pytable:
-            image = getattr(pytable.root, self.types[0])[index, ]
-            label = getattr(pytable.root, self.types[1])[index, ]
-        return image, label
+            # image = getattr(pytable.root, self.types[0])[index, ]
+            # label = getattr(pytable.root, self.types[1])[index, ]
+            results = tuple(getattr(pytable.root, type_name)[index, ] for type_name in self.types)
+        return results
 
     def size(self, phase):
         with tables.open_file(self.generate_table_name(phase)[0], 'r') as pytable:
