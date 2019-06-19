@@ -7,7 +7,6 @@ from h5database.database.helper import DataExtractor
 import PIL
 import re
 import os
-from lazy_property import LazyProperty
 from h5database.skeletal.abstract_extractor import ExtractCallable
 
 __all__ = ['ExtSuperResolution', 'ExtTissueByMask']
@@ -17,7 +16,6 @@ class ExtSuperResolution(ExtractCallable):
 
     # override
     @staticmethod
-    @LazyProperty
     def type_order() -> Sequence[str]:
         return ['img', 'label']
 
@@ -41,10 +39,10 @@ class ExtSuperResolution(ExtractCallable):
     @staticmethod
     def extractor(inputs: Tuple[object, ...], type_order: Sequence[str], obj: DataExtractor, file: str,
                   data_shape: Dict[str, Tuple[int, ...]], **kwargs) \
-            -> Tuple[Tuple[object, ...], Sequence[bool], Sequence[str], object]:
+            -> Tuple[Tuple, np.ndarray, Sequence[str], object]:
         stride_size = kwargs['stride_size']
         flatten = kwargs.get('flatten', True)
-        type_order = ExtSuperResolution.type_order
+        type_order = ExtSuperResolution.type_order()
         patches = tuple(ExtractCallable.extract_patch(data_source, data_shape[type_key], stride_size,
                                                       flatten=flatten)
                         for (data_source, type_key) in zip(inputs, type_order)
@@ -66,7 +64,6 @@ class ExtTissueByMask(ExtractCallable):
 
     # override
     @staticmethod
-    @LazyProperty
     def type_order() -> Sequence[str]:
         return ['img', 'label', 'mask']
 

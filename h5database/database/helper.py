@@ -3,7 +3,8 @@ import numpy as np
 import PIL
 import tables
 from typing import Dict, Tuple, Sequence
-from h5database.skeletal import AbstractDB, ExtractCallable
+from h5database.skeletal import AbstractDB
+import inspect
 
 
 class DbHelper(object):
@@ -18,12 +19,13 @@ class DbHelper(object):
 class TaskManager(DbHelper):
     def __init__(self, database: AbstractDB):
         super().__init__(database)
-        self.filenameAtom = tables.StringAtom(itemsize=255)
+        self.filename_atom = tables.StringAtom(itemsize=255)
+        self.types_atom = tables.StringAtom(itemsize=255)
         # whether the patch is valid.
-        self.validAtom = tables.BoolAtom(shape=(), dflt=False)
+        self.valid_atom = tables.BoolAtom(shape=(), dflt=False)
         # save the meta info: split
         # noinspection PyArgumentList
-        self.splitAtom = tables.IntAtom(shape=(), dflt=False)
+        self.split_atom = tables.IntAtom(shape=(), dflt=False)  # todo
 
         self.hdf5_organizer = H5Organizer(self.database, self.database.group_level)
         self.data_extractor = DataExtractor(self.database)
@@ -36,9 +38,10 @@ class TaskManager(DbHelper):
         return self.database.types
 
     def write(self, phase, filters):
-        self.hdf5_organizer.build_patch_array(phase, 'filename', self.filenameAtom)
-        self.hdf5_organizer.build_patch_array(phase, 'valid', self.validAtom)
-        self.hdf5_organizer.build_patch_array(phase, 'split', self.splitAtom)
+        self.hdf5_organizer.build_patch_array(phase, 'filename', self.filename_atom)
+        self.hdf5_organizer.build_patch_array(phase, 'valid', self.valid_atom)
+        self.hdf5_organizer.build_patch_array(phase, 'split', self.split_atom, group_level=H5Organizer.LEVEL_PATCH)
+        self.hdf5_organizer.build_patch_array(phase, 'types', self.types_atom, group_level=H5Organizer.LEVEL_PATCH)
         with self.hdf5_organizer.pytables[phase]:
             self.database.refresh_atoms()
             self._create_h5array_by_types(phase, filters)
@@ -46,6 +49,7 @@ class TaskManager(DbHelper):
             self.weight_writer.write_classweight_to_db(self.hdf5_organizer, phase)
             # self.database.splits
             self.hdf5_organizer.h5arrays[phase]['split'].append(self.database.splits[phase])
+            self.hdf5_organizer.h5arrays[phase]['types'].append(self.types)
 
     def _create_h5array_by_types(self, phase, filters):
         for category_type in self.types:
@@ -86,7 +90,9 @@ class TaskManager(DbHelper):
 class DataExtractor(DbHelper):
     def __init__(self, database: AbstractDB):
         super().__init__(database)
-        self._extract_callable: ExtractCallable = database.extract_callable
+        self._extract_callable = database.extract_callable
+        assert not inspect.isclass(self._extract_callable), "Expect an instantiated callable. " \
+                                                            "A class variable is encountered."
         self.meta = type(self)._default_meta(self.database.meta)
         self._meta_load_database(self.database)
 
@@ -202,7 +208,7 @@ class H5Organizer(DbHelper):
     '''Precondition:h5arrays and pytables initialized/created
     '''
 
-    def build_patch_array(self, phase, category_type, atom, filters=None, expected_rows=None):
+    def build_patch_array(self, phase, category_type, atom, filters=None, expected_rows=None, group_level=None):
         h5_shape, chunk_shape = type(self)._get_h5_shapes(self.database.chunk_width)
 
         params = {
@@ -212,11 +218,12 @@ class H5Organizer(DbHelper):
         }
         if expected_rows is not None and isinstance(expected_rows, int):
             params['expectedrows'] = expected_rows
-
-        if self.group_level is type(self).LEVEL_PATCH:
+        if group_level is None:
+            group_level = self.group_level
+        if group_level is type(self).LEVEL_PATCH:
             create_func = self.pytables[phase].create_earray
             params['shape'] = h5_shape
-        elif self.group_level is type(self).LEVEL_GROUP:
+        elif group_level is type(self).LEVEL_GROUP:
             create_func = self.pytables[phase].create_vlarray
         else:
             raise ValueError('Invalid Group Level:' + str(self.group_level))

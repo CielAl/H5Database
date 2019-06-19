@@ -5,7 +5,8 @@ from h5database.skeletal import AbstractDB
 from h5database.database.helper import TaskManager
 import glob
 from h5database.common import Split
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Sequence
+from lazy_property import LazyProperty
 
 
 class Database(AbstractDB):
@@ -89,9 +90,27 @@ class Database(AbstractDB):
         files = glob.glob(file_pattern)
         return files
 
-    @staticmethod
-    def parse_types(shape_dict: Dict[str, Tuple[int, ...]]):
-        return list(shape_dict.keys())
+    @LazyProperty
+    def types(self):
+        if not hasattr(self, '_types') or self._types is None:
+            self._types = self.parse_types(shape_dict=None)
+        return self._types
+
+    # override
+    def parse_types(self, shape_dict: Dict[str, Tuple[int, ...]] = None) -> Sequence[str]:
+        if shape_dict is not None:
+            type_names = list(shape_dict.keys())
+        else:
+            phases = type(self).train_name(), type(self).val_name()
+            type_names_list = []
+            for phase in phases:
+                with tables.open_file(self.generate_table_name(phase)[0], 'r') as pytable:
+                    type_names_list.append(tuple(pytable.root.types[:]))
+            type_agree: bool = len(set(type_names_list)) <= 1
+            assert type_agree, f"type_names across phase disagree. " \
+                f"Got: {type_names_list}"
+            type_names = [x.decode('utf-8') for x in type_names_list[0]]
+        return type_names
 
     '''
         Initialize the data split and shuffle.
@@ -118,3 +137,9 @@ class Database(AbstractDB):
     def prepare_export_directory(pytable_dir):
         if not os.path.exists(pytable_dir):
             os.makedirs(pytable_dir)
+
+    def __enter__(self):
+        ...
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        ...

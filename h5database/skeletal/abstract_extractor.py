@@ -12,10 +12,10 @@ from h5database.database.helper import DataExtractor
 
 
 class ExtractCallable(ABC):
-
+    KEY_SHAPE = 'data_shape'
     @staticmethod
-    def patch_numbers(patches, n_dims: int = 3):
-        return patches.size / reduce(mul, patches.shape[-n_dims:])
+    def patch_numbers(patches, n_dims: int = 3) -> int:
+        return patches.size // reduce(mul, patches.shape[-n_dims:])
 
     @staticmethod
     def validate_shape(patch_groups, type_order, data_shape):
@@ -73,7 +73,9 @@ class ExtractCallable(ABC):
         else:
             params = obj.meta
         patch_types = obj.database.types
-        patch_shape = params['data_shape']
+
+        patch_shape = params[cls.KEY_SHAPE]
+        params = {key: params[key] for key in params if key is not cls.KEY_SHAPE}
         type_order = cls.type_order()
         cls.validate_type_order(patch_types, type_order)
         inputs = cls.get_inputs(obj, file, type_order, patch_shape, **params)
@@ -108,7 +110,6 @@ class ExtractCallable(ABC):
     @abstractmethod
     def _label_key_str() -> str:
         ...
-
 
     @staticmethod
     @abstractmethod

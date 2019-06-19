@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 from lazy_property import LazyProperty
 from typing import List, Tuple, Dict, Callable, Sequence
 import tables
-from h5database.skeletal import ExtractCallable
-from h5database.skeletal import WeightCounterCallable
 
 
 class AbstractDB(ABC):
@@ -26,34 +24,36 @@ class AbstractDB(ABC):
         self.readonly: bool = kwargs.get('readonly', False)
         # for style only. Initialized by the setter below.
         self._atoms = None
-
         if not self.readonly:
-            self.file_dir: str = kwargs['file_dir']
-            self.data_shape: Dict[str, Tuple[int, ...]] = kwargs['data_shape']
-            self._types: List[str] = type(self).parse_types(self.data_shape)
+            self.__init_write_params(**kwargs)
+        else:
+            self._types = self.parse_types()
 
-            self._validate_shape_key(self.data_shape)
-            self.group_level: int = kwargs['group_level']
-            self.extract_callable: ExtractCallable = kwargs['extractor']
-            # refactor later
-            self.write_invalid: bool = kwargs.get('write_invalid', False)
-            self.chunk_width: int = kwargs.get('chunk_width', 1)
-            self.num_split: int = kwargs.get('num_fold', 10)
-            self.shuffle: bool = kwargs.get('shuffle', True)
-            self.pattern: str = kwargs.get('pattern', '*.png')
+    def __init_write_params(self, **kwargs):
+        self.file_dir: str = kwargs['file_dir']
+        self.data_shape: Dict[str, Tuple[int, ...]] = kwargs['data_shape']
+        self._types = self.parse_types(shape_dict=self.data_shape)
+        self._validate_shape_key(self.data_shape)
+        self.group_level: int = kwargs['group_level']
+        self.extract_callable = kwargs['extractor']
+        # refactor later
+        self.write_invalid: bool = kwargs.get('write_invalid', False)
+        self.chunk_width: int = kwargs.get('chunk_width', 1)
+        self.num_split: int = kwargs.get('num_fold', 10)
+        self.shuffle: bool = kwargs.get('shuffle', True)
+        self.pattern: str = kwargs.get('pattern', '*.png')
 
-            self.weight_counter_callable: WeightCounterCallable = kwargs.get('weight_counter', None)
-            self.enable_weight: bool = kwargs.get('class_weight', False)
-            self.classes: Sequence[str] = kwargs.get('class_names', None)
+        self.weight_counter_callable = kwargs.get('weight_counter', None)
+        self.enable_weight: bool = kwargs.get('class_weight', False)
+        self.classes: Sequence[str] = kwargs.get('class_names', None)
 
-            self.file_list: Sequence[str] = kwargs.get('file_list', self.get_files())
-            self.splits: Dict[str, Sequence[int]] = kwargs.get('split', self.init_split())
+        self.file_list: Sequence[str] = kwargs.get('file_list', self.get_files())
+        self.splits: Dict[str, Sequence[int]] = kwargs.get('split', self.init_split())
 
-            # for Database itself, meta is not handled until passed to DataaExtractor
-            self.meta: Dict = kwargs.get('meta', {})
-
-            self.row_atom_func: Callable = kwargs.get('row_atom_func', tables.UInt8Atom)
-            self.refresh_atoms()
+        # for Database itself, meta is not handled until passed to DataaExtractor
+        self.meta: Dict = kwargs.get('meta', {})
+        self.row_atom_func: Callable = kwargs.get('row_atom_func', tables.UInt8Atom)
+        self.refresh_atoms()
 
     @abstractmethod
     def __getitem__(self, index):
@@ -80,8 +80,9 @@ class AbstractDB(ABC):
         return self.splits.keys()
 
     @LazyProperty
+    @abstractmethod
     def types(self):
-        return self._types
+        ...
 
     @abstractmethod
     def _validate_shape_key(self, data_shape):
@@ -94,9 +95,8 @@ class AbstractDB(ABC):
     def get_files(self):
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_types(shape_dict: Dict[str, Tuple[int, ...]]):
+    def parse_types(self, shape_dict: Dict[str, Tuple[int, ...]] = None):
         ...
 
     @abstractmethod
@@ -110,4 +110,12 @@ class AbstractDB(ABC):
     @staticmethod
     @abstractmethod
     def prepare_export_directory(pytable_dir):
+        ...
+
+    @abstractmethod
+    def __enter__(self):
+        ...
+
+    @abstractmethod
+    def __exit__(self, exc_type, exc_val, exc_tb):
         ...
