@@ -9,6 +9,9 @@ import types
 from skimage.color import rgb2gray
 import numpy as np
 from h5database.database.helper import DataExtractor
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class ExtractCallable(ABC):
@@ -16,12 +19,12 @@ class ExtractCallable(ABC):
     @staticmethod
     def patch_numbers(patches, n_dims: int = 3) -> int:
         if patches.ndim < 2:  # row vectors
-            print('patch_num', patches, 'ndims', n_dims)
+            # logging.debug('patch_num', patches, 'ndims', n_dims)
             count = patches.shape[0]
         else:
             patch_size_product = reduce(mul, patches.shape[-n_dims:])
             if patch_size_product == 0:  # empty
-                print('patch_num', patches, 'ndims', n_dims)
+                # logging.debug('patch_num', patches, 'ndims', n_dims)
                 count = 0
             else:
                 count = patches.size // patch_size_product
@@ -30,12 +33,12 @@ class ExtractCallable(ABC):
     @staticmethod
     def validate_shape(patch_groups, type_order, data_shape):
         n_dims = tuple(len(data_shape[x]) for x in type_order)
-        print(tuple(data_shape[type_name] for type_name in type_order))
-        print(tuple(patches.shape for patches in patch_groups))
+        logging.debug(tuple(data_shape[type_name] for type_name in type_order))
+        logging.debug(tuple(patches.shape for patches in patch_groups))
         validation_result = tuple(patches.shape[-num_dimension:] == data_shape[type_name]
                                   or (len(data_shape[type_name]) < 1 and patches.ndim == 1)
                                   for (patches, num_dimension, type_name) in zip(patch_groups, n_dims, type_order))
-        print(validation_result)
+        logging.debug(validation_result)
         assert np.asarray(validation_result).all(), f"Shape mismatched:" \
             f"{list(patches.shape for patches in patch_groups)}. Expect: {data_shape}"
 
@@ -44,14 +47,14 @@ class ExtractCallable(ABC):
         assert not np.isscalar(image), f"does not support scalar input:{image}"
         if len(patch_shape) == 0:
             patch_shape = 1
-        print('image_shape', image.shape, patch_shape)
+        logging.debug('image_shape', image.shape, patch_shape)
         insufficient_size = (x < y for (x, y) in zip(image.shape, patch_shape))
         if any(insufficient_size):
             pad_size = tuple(
-                        (y-x)/2
+                        max((y-x)/2, 0)
                         for (x, y) in zip(image.shape, patch_shape))
 
-            pad_size = tuple((np.ceil(x), np.floor(x)) for x in pad_size)
+            pad_size = tuple((int(np.ceil(x)), int(np.floor(x))) for x in pad_size)
             image = np.pad(image, pad_size, 'wrap')
         patches = extract_patches(image, patch_shape, stride)
         if flatten:
@@ -110,7 +113,7 @@ class ExtractCallable(ABC):
 
         assert len(out_data) == len(patch_types), f"Number of returned data type mismatched" \
             f"Got:{len(out_data)}vs. Expect:{len(patch_types)}"
-        print(type_order)
+        logging.debug(type_order)
         cls.validate_shape(out_data, type_order, patch_shape)
         num_patch_group = tuple(cls.patch_numbers(patches, n_dims=len(patch_shape[type_name]))
                                 for (patches, type_name) in zip(out_data, type_order))

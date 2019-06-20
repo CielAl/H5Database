@@ -8,7 +8,9 @@ import PIL
 import re
 import os
 from h5database.skeletal.abstract_extractor import ExtractCallable
+import logging
 
+logging.basicConfig(level=logging.DEBUG)
 __all__ = ['ExtSuperResolution', 'ExtTissueByMask']
 
 
@@ -88,7 +90,7 @@ class ExtTissueByMask(ExtractCallable):
         image_whole = cv2.resize(image_whole, (0, 0), fx=resize, fy=resize,
                                  interpolation=interp)
         mask_name = ExtTissueByMask.get_mask_name(file, mask_dir, suffix=suffix, extension=extension)
-        print(mask_name)
+        logging.debug(mask_name)
         mask_whole = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)
         mask_whole = cv2.threshold(mask_whole, 1, 255, cv2.THRESH_BINARY)[1]
         mask_whole = cv2.resize(mask_whole, (0, 0), fx=resize, fy=resize,
@@ -112,6 +114,7 @@ class ExtTissueByMask(ExtractCallable):
         flatten = kwargs.get('flatten', True)
         dispose = kwargs.get('dispose', True)
         thresh = kwargs.get('tissue_area_thresh', 0)  # high pass
+        logging.debug('thresh', thresh)
         patch_out = tuple(
                                                 ExtractCallable.extract_patch(groups, data_shape[type_key], stride_size,
                                                                               flatten=flatten)
@@ -131,12 +134,14 @@ class ExtTissueByMask(ExtractCallable):
         valid_patch = patches_mask.mean(axis=mask_axis)
         valid_tag = valid_patch >= thresh
         if flatten and dispose:
-            print(valid_tag.shape)
-            print(labels.shape)
+            logging.debug(valid_tag.shape)
+            logging.debug(labels.shape)
             patches_im = patches_im[valid_tag, :]
             patches_mask = patches_mask[valid_tag, :]
-            labels = labels[0:valid_tag.shape[0]]
+            labels = labels[0:valid_tag.sum()]
         else:
             patches_im[valid_tag, :] = 0
         extra_info = None
+        assert patches_im.shape[0] == patches_mask.shape[0] and patches_im.shape[0] == len(labels), f"Length mismatch" \
+            f"{patches_im.shape[0]}, {patches_mask.shape[0]}, {len(labels)}"
         return (patches_im, patches_mask, labels), valid_tag, type_order, extra_info
