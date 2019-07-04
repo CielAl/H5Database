@@ -114,7 +114,7 @@ class ExtTissueByMask(ExtractCallable):
         flatten = kwargs.get('flatten', True)
         dispose = kwargs.get('dispose', True)
         thresh = kwargs.get('tissue_area_thresh', 0)  # high pass
-        logging.debug('thresh', thresh)
+        logging.debug(f'thresh{thresh}')
         patch_out = tuple(
                                                 ExtractCallable.extract_patch(groups, data_shape[type_key], stride_size,
                                                                               flatten=flatten)
