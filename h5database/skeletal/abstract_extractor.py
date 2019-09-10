@@ -15,6 +15,11 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class ExtractCallable(ABC):
+    """
+        Type order annotated in method type_order.
+        Overriden get_inputs should manually match the order of data types in patch_group
+        with the given type_order.
+    """
     KEY_SHAPE = 'data_shape'
     @staticmethod
     def patch_numbers(patches, n_dims: int = 3) -> int:
