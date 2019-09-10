@@ -1,4 +1,4 @@
-import h5database.skeletal.abstract_database
+import h5database.database.abstract_database
 from .database import Database
 from h5database.common.split import Split
 import os

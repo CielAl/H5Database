@@ -8,7 +8,7 @@ import skimage
 import types
 from skimage.color import rgb2gray
 import numpy as np
-from h5database.database.helper import DataExtractor
+from h5database.database import DataExtractor
 import logging
 
 logging.basicConfig(level=logging.DEBUG)

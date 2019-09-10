@@ -1,1 +1,2 @@
-from .database import *
+from . import *
+from .database import DataExtractor

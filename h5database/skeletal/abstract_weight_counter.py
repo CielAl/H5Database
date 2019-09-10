@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Sequence, Dict
 import numpy as np
-from h5database.database.helper import WeightCollector
+from h5database.database import WeightCollector
 
 
 class WeightCounterCallable(ABC):

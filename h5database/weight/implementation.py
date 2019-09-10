@@ -2,7 +2,7 @@ import os
 import re
 from h5database.skeletal import WeightCounterCallable
 from typing import Sequence, Dict,Sized
-from h5database.database.helper import WeightCollector
+from h5database.database.database import WeightCollector
 
 
 class WeightFile(WeightCounterCallable):

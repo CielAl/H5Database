@@ -3,7 +3,7 @@ from typing import Tuple, Dict, Sequence
 import cv2
 
 import numpy as np
-from h5database.database.helper import DataExtractor
+from h5database.database.database import DataExtractor
 import PIL
 import re
 import os
