@@ -42,7 +42,7 @@ class AbstractDB(ABC):
              meta (Dict): Extra parameters to be passed to callables (extract_callable or weight_counter_callable)
              row_atom_func (Callable): The constructor/builder of the atom of the row of EArray/VLArray.
                                         Default is tables.UInt8Atom
-
+             comp_level (int): Compression Level for the filter of pytable. Default value is 3.
 
         """
         self.KEY_TRAIN: str = type(self).train_name()
@@ -81,13 +81,13 @@ class AbstractDB(ABC):
         self.weight_counter_callable = kwargs.get('weight_counter', None)
         self.enable_weight: bool = kwargs.get('class_weight', False)
         self.classes: Sequence[str] = kwargs.get('class_names', None)
-
         self.file_list: Sequence[str] = kwargs.get('file_list', self.get_files())
         self.splits: Dict[str, Sequence[int]] = kwargs.get('split', self.init_split())
-
+        # todo coordinate can be inserted into data_shape, and implemented by Extractor
         # for Database itself, meta is not handled until passed to DataaExtractor
         self.meta: Dict = kwargs.get('meta', {})
         self.row_atom_func: Callable = kwargs.get('row_atom_func', tables.UInt8Atom)
+        self.comp_level: int = kwargs.get('comp_level', 3)
         self.refresh_atoms()
 
     @abstractmethod

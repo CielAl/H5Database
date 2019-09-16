@@ -1,12 +1,14 @@
 import os
 import re
 from h5database.skeletal import WeightCounterCallable
-from typing import Sequence, Dict,Sized
+from typing import Sequence, Dict
 from h5database.database.database import WeightCollector
 
 
 class WeightFile(WeightCounterCallable):
-
+    """
+        Accumulate by file counts.
+    """
     # override
     @staticmethod
     def _count(collector: WeightCollector, file: str, type_names: Sequence[str], patch_group: Dict,
@@ -21,7 +23,9 @@ class WeightFile(WeightCounterCallable):
 
 
 class WeightMaskPixelCallable(WeightCounterCallable):
-
+    """
+        Accumulate weight by mask pixels.
+    """
     # override
     @staticmethod
     def _count(collector: WeightCollector, file: str, type_names: Sequence[str], patch_group: Dict,

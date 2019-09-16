@@ -14,7 +14,7 @@ import glob
 from h5database.common import Split
 from typing import Dict, Tuple, Sequence, Callable, Any
 from lazy_property import LazyProperty
-
+from h5database.common import get_path_limit
 
 class Database(AbstractDB):
 
@@ -77,7 +77,7 @@ class Database(AbstractDB):
         Returns:
 
         """
-        filters = tables.Filters(complevel=3)  # todo manual complevel
+        filters = tables.Filters(complevel=self.comp_level)
         with TaskManager(self) as self.task_dispatcher:
             for phase in self.phases:
                 self.task_dispatcher.write(phase, filters)
@@ -291,7 +291,9 @@ class TaskManager(DbHelper):
         self.valid_atom = tables.BoolAtom(shape=(), dflt=False)
         # save the meta info: split
         # noinspection PyArgumentList
-        self.split_atom = tables.IntAtom(shape=(), dflt=False)  # todo split and file_list
+        self.file_list_atom = tables.StringAtom(itemsize=get_path_limit())
+        # noinspection PyArgumentList
+        self.split_atom = tables.IntAtom(shape=(), dflt=False)
 
         self.hdf5_organizer = H5Organizer(self.database, self.database.group_level)
         self.data_extractor = DataExtractor(self.database)
@@ -314,6 +316,7 @@ class TaskManager(DbHelper):
 
         """
         self.hdf5_organizer.build_patch_array(phase, 'filename', self.filename_atom)
+        self.hdf5_organizer.build_patch_array(phase, 'file_list', self.file_list_atom)
         self.hdf5_organizer.build_patch_array(phase, 'valid', self.valid_atom)
         self.hdf5_organizer.build_patch_array(phase, 'split', self.split_atom, group_level=H5Organizer.LEVEL_PATCH)
         self.hdf5_organizer.build_patch_array(phase, 'types', self.types_atom, group_level=H5Organizer.LEVEL_PATCH)
@@ -325,6 +328,8 @@ class TaskManager(DbHelper):
             # self.database.splits
             self.hdf5_organizer.h5arrays[phase]['split'].append(self.database.splits[phase])
             self.hdf5_organizer.h5arrays[phase]['types'].append(self.types)
+            self.hdf5_organizer.h5arrays[phase]['file_list'].append(self.database.file_list)
+
 
     def _create_h5array_by_types(self, phase, filters):
         """
@@ -543,7 +548,7 @@ class WeightCollector(DbHelper):
 
     def write_class_weight_to_db(self, hdf5_organizer, phase):
         if self.is_count_weight():
-            n_pixels = hdf5_organizer.build_statistics(phase, 'class_sizes', self.totals)
+            n_pixels = hdf5_organizer.build_meta_data(phase, 'class_sizes', self.totals)
             n_pixels[:] = self.totals
 
 
@@ -650,21 +655,22 @@ class H5Organizer(DbHelper):
         return self.h5arrays[phase][category_type]
 
     # carrays. metadata
-    def build_statistics(self, phase: str, category_type: str, data: Any):
+    def build_meta_data(self, phase: str, category_type: str, template_data: Any):
         """
         Create H5Array for metadata, which is not tied to extracted data array.
         Args:
             phase ():
             category_type ():
-            data ():
+            template_data ():
 
         Returns:
 
         """
-        self.h5arrays[phase][category_type] = self.pytables[phase].create_carray(self.pytables[phase].root,
-                                                                                 category_type,
-                                                                                 tables.Atom.from_dtype(data.dtype),
-                                                                                 data.shape)
+        self.h5arrays[phase][category_type] = self.pytables[phase]\
+                                                  .create_carray(self.pytables[phase].root,
+                                                                 category_type,
+                                                                 tables.Atom.from_dtype(template_data.dtype),
+                                                                 template_data.shape)
         return self.h5arrays[phase][category_type]
 
     # todo
