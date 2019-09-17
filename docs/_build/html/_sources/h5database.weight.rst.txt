@@ -1,0 +1,22 @@
+h5database.weight package
+=========================
+
+Submodules
+----------
+
+h5database.weight.implementation module
+---------------------------------------
+
+.. automodule:: h5database.weight.implementation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: h5database.weight
+   :members:
+   :undoc-members:
+   :show-inheritance:

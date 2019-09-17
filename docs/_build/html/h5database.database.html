@@ -1,0 +1,635 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>h5database.database package &mdash; H5Database 0.4.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> H5Database
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">h5database.database package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-h5database.database.abstract_database">h5database.database.abstract_database module</a></li>
+<li><a class="reference internal" href="#module-h5database.database.database">h5database.database.database module</a></li>
+<li><a class="reference internal" href="#module-h5database.database">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">H5Database</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>h5database.database package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/h5database.database.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="h5database-database-package">
+<h1>h5database.database package<a class="headerlink" href="#h5database-database-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-h5database.database.abstract_database">
+<span id="h5database-database-abstract-database-module"></span><h2>h5database.database.abstract_database module<a class="headerlink" href="#module-h5database.database.abstract_database" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="h5database.database.abstract_database.AbstractDB">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.database.abstract_database.</code><code class="sig-name descname">AbstractDB</code><span class="sig-paren">(</span><em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></p>
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.atoms">
+<em class="property">property </em><code class="sig-name descname">atoms</code><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.atoms" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.generate_table_name">
+<em class="property">abstract </em><code class="sig-name descname">generate_table_name</code><span class="sig-paren">(</span><em class="sig-param">param</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.generate_table_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.generate_table_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the filename of the pytables
+:param param ():</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.get_files">
+<em class="property">abstract </em><code class="sig-name descname">get_files</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Sequence[str]<a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.get_files"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.get_files" title="Permalink to this definition">¶</a></dt>
+<dd><p>Behavior to extract the source file list.
+Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.init_split">
+<em class="property">abstract </em><code class="sig-name descname">init_split</code><span class="sig-paren">(</span><em class="sig-param">stratified_labels=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.init_split"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.init_split" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.initialize">
+<em class="property">abstract </em><code class="sig-name descname">initialize</code><span class="sig-paren">(</span><em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.initialize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.initialize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.parse_types">
+<em class="property">abstract </em><code class="sig-name descname">parse_types</code><span class="sig-paren">(</span><em class="sig-param">shape_dict: Dict[str</em>, <em class="sig-param">Tuple[int</em>, <em class="sig-param">...]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.parse_types"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.parse_types" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract names of data types from the dict of shapes. Data types as the purpose of data,
+i.e. img, mask, or labels etc.
+:param shape_dict: The shape_dict per type.
+:type shape_dict: Dict[str, Tuple[int, …]]</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.phases">
+<em class="property">property </em><code class="sig-name descname">phases</code><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.phases" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.prepare_export_directory">
+<em class="property">abstract static </em><code class="sig-name descname">prepare_export_directory</code><span class="sig-paren">(</span><em class="sig-param">pytable_dir: str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.prepare_export_directory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.prepare_export_directory" title="Permalink to this definition">¶</a></dt>
+<dd><p>If output directory does not exist, then create it.
+:param pytable_dir: The expected output directory
+:type pytable_dir: str</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.refresh_atoms">
+<em class="property">abstract </em><code class="sig-name descname">refresh_atoms</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.refresh_atoms"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.refresh_atoms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recreate the row atoms every time an entry is fetched into the h5array.
+Otherwise exception may occur.
+Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.train_name">
+<em class="property">classmethod </em><code class="sig-name descname">train_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.train_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.train_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.types">
+<em class="property">property </em><code class="sig-name descname">types</code><a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.types"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.types" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.abstract_database.AbstractDB.val_name">
+<em class="property">classmethod </em><code class="sig-name descname">val_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/h5database/database/abstract_database.html#AbstractDB.val_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.abstract_database.AbstractDB.val_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-h5database.database.database">
+<span id="h5database-database-database-module"></span><h2>h5database.database.database module<a class="headerlink" href="#module-h5database.database.database" title="Permalink to this headline">¶</a></h2>
+<p>Implementation of the core Database class.</p>
+<dl class="class">
+<dt id="h5database.database.database.DataExtractor">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.database.database.</code><code class="sig-name descname">DataExtractor</code><span class="sig-paren">(</span><em class="sig-param">database: h5database.database.abstract_database.AbstractDB</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#DataExtractor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.DataExtractor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#h5database.database.database.DbHelper" title="h5database.database.database.DbHelper"><code class="xref py py-class docutils literal notranslate"><span class="pre">h5database.database.database.DbHelper</span></code></a></p>
+<p>Controller of Data Extration workflow.</p>
+<dl class="method">
+<dt id="h5database.database.database.DataExtractor.extract">
+<code class="sig-name descname">extract</code><span class="sig-paren">(</span><em class="sig-param">file: str</em><span class="sig-paren">)</span> &#x2192; Tuple[Tuple[Any, ...], Sequence[bool], Sequence[str], Any]<a class="reference internal" href="_modules/h5database/database/database.html#DataExtractor.extract"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.DataExtractor.extract" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract data, e.g. patches from the source file.
+:param file: Full file path.
+:type file: str</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Tuple[object, …] as the group of data extracted from the file. Length of the object
+must be the same.
+Sequence[bool] as a sequence of validation tag, identifying whether the corresponding
+object is qualified.
+Sequence[str]
+object as</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.DataExtractor.extract_callable">
+<em class="property">property </em><code class="sig-name descname">extract_callable</code><a class="headerlink" href="#h5database.database.database.DataExtractor.extract_callable" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="h5database.database.database.Database">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.database.database.</code><code class="sig-name descname">Database</code><span class="sig-paren">(</span><em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#Database"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#h5database.database.abstract_database.AbstractDB" title="h5database.database.abstract_database.AbstractDB"><code class="xref py py-class docutils literal notranslate"><span class="pre">h5database.database.abstract_database.AbstractDB</span></code></a></p>
+<dl class="method">
+<dt id="h5database.database.database.Database.generate_table_name">
+<code class="sig-name descname">generate_table_name</code><span class="sig-paren">(</span><em class="sig-param">phase: str</em><span class="sig-paren">)</span> &#x2192; Tuple[str, str]<a class="reference internal" href="_modules/h5database/database/database.html#Database.generate_table_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.generate_table_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Override from AbstractDB. Define the output pytable name as database_name_phase.pytable
+:param phase: Phase of dataset, e.g. train or val.
+:type phase: str</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Full file path of exported pytable given the phase.
+pytable_dir (str): The export dir of pytable</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>pytable_full_path (str)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.get_files">
+<code class="sig-name descname">get_files</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Sequence[str]<a class="reference internal" href="_modules/h5database/database/database.html#Database.get_files"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.get_files" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default behavior getting the source files: get the list of files matching the pattern under the file_dir.
+:returns: Full paths of all selected source files.
+:rtype: files (Sequence[str])</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.init_split">
+<code class="sig-name descname">init_split</code><span class="sig-paren">(</span><em class="sig-param">stratified_labels=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#Database.init_split"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.init_split" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize the data split and shuffle using K_fold. If labels are given, using stratified K-fold
+to preserve the label balance in each split.
+:param stratified_labels: A sequence of labels. Default is None.
+:type stratified_labels: Sequence</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>File split (specified by file_id in the file_list) per phase.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>splits (Dict[str, np.ndarray])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.initialize">
+<code class="sig-name descname">initialize</code><span class="sig-paren">(</span><em class="sig-param">force_overwrite=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#Database.initialize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.initialize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write files to the new database, if the database is not already created, unless specify the force_overwrite
+as True
+:param force_overwrite: Whether overwrite the pytables if they already exist. Default is False.
+:type force_overwrite: bool</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.is_instantiated">
+<code class="sig-name descname">is_instantiated</code><span class="sig-paren">(</span><em class="sig-param">phase</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#Database.is_instantiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.is_instantiated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return false if no hdf5 found on the export path.
+:param phase: Phase of the pytable, e.g. train.
+:type phase: str</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.parse_types">
+<code class="sig-name descname">parse_types</code><span class="sig-paren">(</span><em class="sig-param">shape_dict: Dict[str</em>, <em class="sig-param">Tuple[int</em>, <em class="sig-param">...]] = None</em><span class="sig-paren">)</span> &#x2192; Sequence[str]<a class="reference internal" href="_modules/h5database/database/database.html#Database.parse_types"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.parse_types" title="Permalink to this definition">¶</a></dt>
+<dd><p>Override from the superclass. Extract the name of data_types from the given shape_dict.         If shape_dict is not None, then the types are given by its keys. Otherwise use the         pre-defined train_name and val_name property.
+:param shape_dict: Name-Value pair of &lt;type, shape&gt;. Default is None.
+:type shape_dict: Dict[str, Tuple[int, …]]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of the names of types.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>type_names (Sequence[str])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.peek">
+<code class="sig-name descname">peek</code><span class="sig-paren">(</span><em class="sig-param">phase</em><span class="sig-paren">)</span> &#x2192; Tuple<a class="reference internal" href="_modules/h5database/database/database.html#Database.peek"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.peek" title="Permalink to this definition">¶</a></dt>
+<dd><p>Peek the shape of items given phase.
+:param phase: Phase of pytable.
+:type phase: str</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Shape of data for each type given the phase.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.prepare_export_directory">
+<em class="property">static </em><code class="sig-name descname">prepare_export_directory</code><span class="sig-paren">(</span><em class="sig-param">pytable_dir: str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#Database.prepare_export_directory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.prepare_export_directory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Makedir if the pytable_dir does not exist.
+:param pytable_dir: Target directory.
+:type pytable_dir: str</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.refresh_atoms">
+<code class="sig-name descname">refresh_atoms</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#Database.refresh_atoms"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.refresh_atoms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recreate the self._atoms using _init_atoms.
+:returns: Dict of atoms per data type.
+:rtype: self._atoms (Dict[str, tables.atom])</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.size">
+<code class="sig-name descname">size</code><span class="sig-paren">(</span><em class="sig-param">phase</em><span class="sig-paren">)</span> &#x2192; int<a class="reference internal" href="_modules/h5database/database/database.html#Database.size"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Size of the pytable as number of rows (of h5array) given the phase.
+:param phase: Phase of the pytable.
+:type phase: str</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>H5Array Size as int.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.Database.types">
+<em class="property">property </em><code class="sig-name descname">types</code><a class="reference internal" href="_modules/h5database/database/database.html#Database.types"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.Database.types" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns:
+self._types (str): Types of data specified in the shape_dict</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="h5database.database.database.DbHelper">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.database.database.</code><code class="sig-name descname">DbHelper</code><span class="sig-paren">(</span><em class="sig-param">database: h5database.database.abstract_database.AbstractDB</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#DbHelper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.DbHelper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Parent class for all helper classes.</p>
+<dl class="method">
+<dt id="h5database.database.database.DbHelper.database">
+<em class="property">property </em><code class="sig-name descname">database</code><a class="headerlink" href="#h5database.database.database.DbHelper.database" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="h5database.database.database.H5Organizer">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.database.database.</code><code class="sig-name descname">H5Organizer</code><span class="sig-paren">(</span><em class="sig-param">database: h5database.database.abstract_database.AbstractDB</em>, <em class="sig-param">group_level: int</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#H5Organizer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.H5Organizer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#h5database.database.database.DbHelper" title="h5database.database.database.DbHelper"><code class="xref py py-class docutils literal notranslate"><span class="pre">h5database.database.database.DbHelper</span></code></a></p>
+<dl class="attribute">
+<dt id="h5database.database.database.H5Organizer.LEVEL_GROUP">
+<code class="sig-name descname">LEVEL_GROUP</code><em class="property"> = 1</em><a class="headerlink" href="#h5database.database.database.H5Organizer.LEVEL_GROUP" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="h5database.database.database.H5Organizer.LEVEL_PATCH">
+<code class="sig-name descname">LEVEL_PATCH</code><em class="property"> = 0</em><a class="headerlink" href="#h5database.database.database.H5Organizer.LEVEL_PATCH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.atoms">
+<em class="property">property </em><code class="sig-name descname">atoms</code><a class="headerlink" href="#h5database.database.database.H5Organizer.atoms" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.build_meta_data">
+<code class="sig-name descname">build_meta_data</code><span class="sig-paren">(</span><em class="sig-param">phase: str</em>, <em class="sig-param">category_type: str</em>, <em class="sig-param">template_data: Any</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#H5Organizer.build_meta_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.H5Organizer.build_meta_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create H5Array for metadata, which is not tied to extracted data array.
+:param phase ():
+:param category_type ():
+:param template_data ():</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.build_patch_array">
+<code class="sig-name descname">build_patch_array</code><span class="sig-paren">(</span><em class="sig-param">phase: str</em>, <em class="sig-param">category_type: str</em>, <em class="sig-param">atom: tables.atom.Atom</em>, <em class="sig-param">filters: tables.filters.Filters = None</em>, <em class="sig-param">expectedrows: int = None</em>, <em class="sig-param">group_level: int = None</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="_modules/h5database/database/database.html#H5Organizer.build_patch_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.H5Organizer.build_patch_array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create H5array for extracted data.
+:param phase (): Phase Key.
+:param category_type (): Type name.
+:param atom (): Type of the atom for the array.
+:param filters (): Filter instance for the H5array
+:param expectedrows (): User Estimation of number of rows of the H5array.
+:param group_level (): Whether data are grouped. If 0: no grouping.             If 1: group by source file, using VLarray.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>self.h5arrays</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.flush">
+<code class="sig-name descname">flush</code><span class="sig-paren">(</span><em class="sig-param">phase</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#H5Organizer.flush"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.H5Organizer.flush" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.h5arrays">
+<em class="property">property </em><code class="sig-name descname">h5arrays</code><a class="headerlink" href="#h5database.database.database.H5Organizer.h5arrays" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.phases">
+<em class="property">property </em><code class="sig-name descname">phases</code><a class="headerlink" href="#h5database.database.database.H5Organizer.phases" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.pytables">
+<em class="property">property </em><code class="sig-name descname">pytables</code><a class="headerlink" href="#h5database.database.database.H5Organizer.pytables" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.types">
+<em class="property">property </em><code class="sig-name descname">types</code><a class="headerlink" href="#h5database.database.database.H5Organizer.types" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.write_data_to_array">
+<code class="sig-name descname">write_data_to_array</code><span class="sig-paren">(</span><em class="sig-param">phase</em>, <em class="sig-param">patches_dict</em>, <em class="sig-param">data_size=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#H5Organizer.write_data_to_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.H5Organizer.write_data_to_array" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.H5Organizer.write_file_names_to_array">
+<code class="sig-name descname">write_file_names_to_array</code><span class="sig-paren">(</span><em class="sig-param">phase: str, file: str, patches: Dict[str, Any], category_type: str = 'filename'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#H5Organizer.write_file_names_to_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.H5Organizer.write_file_names_to_array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write the source filename of a group of corresponding extracted
+data to an h5array, given the phase and type.
+Perform write-in if only patches is not None, and each type name of “patches”
+is defined in the database.
+:param phase (): Phase key.
+:param file (): Full filename
+:param patches (): Extracted data.
+:param category_type (): Type name of this field. Default “filename”</p>
+<p>Returns:</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="h5database.database.database.TaskManager">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.database.database.</code><code class="sig-name descname">TaskManager</code><span class="sig-paren">(</span><em class="sig-param">database: h5database.database.abstract_database.AbstractDB</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#TaskManager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.TaskManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#h5database.database.database.DbHelper" title="h5database.database.database.DbHelper"><code class="xref py py-class docutils literal notranslate"><span class="pre">h5database.database.database.DbHelper</span></code></a></p>
+<p>Pipeline control of all tasks: data extraction/writing, weight collecting, H5Array creation, and etc.</p>
+<dl class="method">
+<dt id="h5database.database.database.TaskManager.flush">
+<code class="sig-name descname">flush</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#TaskManager.flush"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.TaskManager.flush" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush the h5arrays of all phases.
+Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.TaskManager.types">
+<em class="property">property </em><code class="sig-name descname">types</code><a class="headerlink" href="#h5database.database.database.TaskManager.types" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.TaskManager.write">
+<code class="sig-name descname">write</code><span class="sig-paren">(</span><em class="sig-param">phase</em>, <em class="sig-param">filters</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#TaskManager.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.TaskManager.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write data to the H5array by phase.
+:param phase: Phase of the pytable.
+:type phase: str
+:param filters: Filters for H5array. Compression-level specified.
+:type filters: tables.Filter</p>
+<p>Returns:</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="h5database.database.database.WeightCollector">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.database.database.</code><code class="sig-name descname">WeightCollector</code><span class="sig-paren">(</span><em class="sig-param">database: h5database.database.abstract_database.AbstractDB</em>, <em class="sig-param">extractor: h5database.database.database.DataExtractor</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#WeightCollector"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.WeightCollector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#h5database.database.database.DbHelper" title="h5database.database.database.DbHelper"><code class="xref py py-class docutils literal notranslate"><span class="pre">h5database.database.database.DbHelper</span></code></a></p>
+<p>Controller.</p>
+<dl class="method">
+<dt id="h5database.database.database.WeightCollector.extractor">
+<em class="property">property </em><code class="sig-name descname">extractor</code><a class="headerlink" href="#h5database.database.database.WeightCollector.extractor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.WeightCollector.is_count_weight">
+<code class="sig-name descname">is_count_weight</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#WeightCollector.is_count_weight"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.WeightCollector.is_count_weight" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validate Weight Collection should be performed.
+:returns: True only if the “enable_weight” field in the associated database obj is true, and class             names are defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.WeightCollector.totals">
+<em class="property">property </em><code class="sig-name descname">totals</code><a class="headerlink" href="#h5database.database.database.WeightCollector.totals" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns:
+The cached class counts.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.WeightCollector.weight_accumulate">
+<code class="sig-name descname">weight_accumulate</code><span class="sig-paren">(</span><em class="sig-param">file: str, type_names: Sequence[str], patch_group: Dict[str, object], extra_information: Any</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#WeightCollector.weight_accumulate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.WeightCollector.weight_accumulate" title="Permalink to this definition">¶</a></dt>
+<dd><p>A wrapper to accumulate class count, if is_count_weight is validated, given the
+callable that defines the behavior of weight accumulation.
+:param file (): Filename.
+:param type_names (): Type names defined in the dataset.
+:param patch_group (): Extracted data of all types from the source file.
+:param extra_information (): Any extra parameters to pass.</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.database.database.WeightCollector.write_class_weight_to_db">
+<code class="sig-name descname">write_class_weight_to_db</code><span class="sig-paren">(</span><em class="sig-param">hdf5_organizer</em>, <em class="sig-param">phase</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/database/database.html#WeightCollector.write_class_weight_to_db"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.database.database.WeightCollector.write_class_weight_to_db" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-h5database.database">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-h5database.database" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Yf Zh
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

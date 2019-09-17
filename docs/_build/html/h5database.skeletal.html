@@ -1,0 +1,357 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>h5database.skeletal package &mdash; H5Database 0.4.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> H5Database
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">h5database.skeletal package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-h5database.skeletal.abstract_extractor">h5database.skeletal.abstract_extractor module</a></li>
+<li><a class="reference internal" href="#module-h5database.skeletal.abstract_weight_counter">h5database.skeletal.abstract_weight_counter module</a></li>
+<li><a class="reference internal" href="#module-h5database.skeletal">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">H5Database</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>h5database.skeletal package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/h5database.skeletal.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="h5database-skeletal-package">
+<h1>h5database.skeletal package<a class="headerlink" href="#h5database-skeletal-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-h5database.skeletal.abstract_extractor">
+<span id="h5database-skeletal-abstract-extractor-module"></span><h2>h5database.skeletal.abstract_extractor module<a class="headerlink" href="#module-h5database.skeletal.abstract_extractor" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.skeletal.abstract_extractor.</code><code class="sig-name descname">ExtractCallable</code><a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">collections.abc.Callable</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">typing.Generic</span></code></p>
+<p>Superclass of all Callable that extract data (e.g. patches) from the source files.
+Type order annotated in method type_order.
+Override get_inputs should manually match the order of data types in patch_group
+with the given type_order.</p>
+<dl class="attribute">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.KEY_SHAPE">
+<code class="sig-name descname">KEY_SHAPE</code><em class="property"> = 'data_shape'</em><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.KEY_SHAPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.background_sanitize">
+<em class="property">classmethod </em><code class="sig-name descname">background_sanitize</code><span class="sig-paren">(</span><em class="sig-param">image: numpy.ndarray</em>, <em class="sig-param">sigma: float = 10</em>, <em class="sig-param">smooth_thresh: float = 0.03</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.background_sanitize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.background_sanitize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove the background pixels for tissue slides (set to 0).
+:param image (): original image. Either gray or RGB.
+:param sigma (): Radius of the Gaussian kernel.
+:param smooth_thresh (): Threshold of background mask (smaller-equal)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>image with background pixels set to 0.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>image</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.extract">
+<em class="property">abstract static </em><code class="sig-name descname">extract</code><span class="sig-paren">(</span><em class="sig-param">inputs: Tuple[object, ...], type_order: Sequence[str], obj: h5database.database.database.DataExtractor, file: str, data_shape: Dict[str, Tuple[int, ...]], **kwargs</em><span class="sig-paren">)</span> &#x2192; Tuple[Sequence[Any], Sequence[bool], Sequence[str], object]<a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.extract"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.extract" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extraction using the result of “get_inputs”.
+:param inputs (): Prepared input array obtained from “get_inputs”.
+:param type_order (): Pre-defined type order of output data.
+:param obj (): Associated DataExtractor object.
+:param file (): Path of Source file.
+:param data_shape (): Shape of data per type.
+:param **kwargs ():</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.extract_patch">
+<em class="property">static </em><code class="sig-name descname">extract_patch</code><span class="sig-paren">(</span><em class="sig-param">image: numpy.ndarray, patch_shape: Tuple[int, ...], stride: int, flatten: bool = True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.extract_patch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.extract_patch" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.get_background_by_contrast">
+<em class="property">static </em><code class="sig-name descname">get_background_by_contrast</code><span class="sig-paren">(</span><em class="sig-param">img_gray: numpy.ndarray</em>, <em class="sig-param">sigma: float = 10</em>, <em class="sig-param">smooth_thresh: float = 0.03</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.get_background_by_contrast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.get_background_by_contrast" title="Permalink to this definition">¶</a></dt>
+<dd><p>A naive background/tissue detection by thresholding the mask of Gaussian-smoothed Laplacian mask.
+Helper function of background_sanitize.
+:param img_gray (): Grayscale image.
+:param sigma (): Variance of the Gaussian kernel.
+:param smooth_thresh (): Threshold of final background mask (smaller-equal)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>background of images.
+mask: binary mask where nonzero elements represent background region.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>background</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.get_inputs">
+<em class="property">abstract static </em><code class="sig-name descname">get_inputs</code><span class="sig-paren">(</span><em class="sig-param">obj: h5database.database.database.DataExtractor, file: str, patch_types: Sequence[str], data_shape: Dict[str, Tuple[int, ...]], **kwargs</em><span class="sig-paren">)</span> &#x2192; Tuple[object, ...]<a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.get_inputs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.get_inputs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pre-process the input for the extraction. Method “extract” will be performed on the prepared input.
+:param obj (): Associated DataExtractor obj.
+:param file (): Path of the source file.
+:param patch_types (): Data type names of all target inputs.
+:param data_shape (): Shapes of data.
+:param **kwargs (): Keyword arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Keyword Arguments</dt>
+<dd class="field-odd"><p><strong>by obj.meta. Implemented by derived classes.</strong> (<em>Given</em>) – </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Input patches group.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.label_key">
+<em class="property">classmethod </em><code class="sig-name descname">label_key</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.label_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.label_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>The attribute name of the “label” (output, ground truth, etc.) entity.         Must be defined in type_order as well.
+:returns: The attribute name of the label.
+:rtype: key (str)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><strong>AssertionError</strong><strong>, </strong><strong>if not defined in type_order.</strong> – </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.patch_numbers">
+<em class="property">static </em><code class="sig-name descname">patch_numbers</code><span class="sig-paren">(</span><em class="sig-param">patches: numpy.ndarray</em>, <em class="sig-param">n_dims: int = 3</em><span class="sig-paren">)</span> &#x2192; int<a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.patch_numbers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.patch_numbers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Examine the number of patches, if dimensionality is specified.
+:param patches (): Groups of Patch data.
+:param n_dims (): Dimensionality. Default 3.</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.type_order">
+<em class="property">abstract static </em><code class="sig-name descname">type_order</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Sequence[str]<a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.type_order"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.type_order" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Predefined order of the data types.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.validate_shape">
+<em class="property">static </em><code class="sig-name descname">validate_shape</code><span class="sig-paren">(</span><em class="sig-param">patch_groups: Sequence[Any], type_order: Sequence[str], data_shape: Dict[str, Tuple]</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.validate_shape"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.validate_shape" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validate whether the shape of each element of the arrays in the patch_groups matches          the definition in the dict of data_shape.
+:param patch_groups (): Sequence of different types of data. i.e. (data_type1_array, data_type2_array, …)                 Assumption: leading dimension of data_typex_array is the length of the data array.
+:param type_order (): The order of types of data in patch_groups.
+:param data_shape (): Dictionary of shape of a single element in the data_array given the type.</p>
+<p>Returns:
+:raises AssertionError if shape does not match:</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="h5database.skeletal.abstract_extractor.ExtractCallable.validate_type_order">
+<em class="property">static </em><code class="sig-name descname">validate_type_order</code><span class="sig-paren">(</span><em class="sig-param">patch_types: Iterable</em>, <em class="sig-param">type_order: Iterable</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/h5database/skeletal/abstract_extractor.html#ExtractCallable.validate_type_order"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_extractor.ExtractCallable.validate_type_order" title="Permalink to this definition">¶</a></dt>
+<dd><p>Raise AssertError if the given patch_types and type_order do not match.
+:param patch_types (): Given data-type of obtained patch
+:param type_order (): Predefined data-type for the ExtractCallable.</p>
+<p>Returns:</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-h5database.skeletal.abstract_weight_counter">
+<span id="h5database-skeletal-abstract-weight-counter-module"></span><h2>h5database.skeletal.abstract_weight_counter module<a class="headerlink" href="#module-h5database.skeletal.abstract_weight_counter" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="h5database.skeletal.abstract_weight_counter.WeightCounterCallable">
+<em class="property">class </em><code class="sig-prename descclassname">h5database.skeletal.abstract_weight_counter.</code><code class="sig-name descname">WeightCounterCallable</code><a class="reference internal" href="_modules/h5database/skeletal/abstract_weight_counter.html#WeightCounterCallable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#h5database.skeletal.abstract_weight_counter.WeightCounterCallable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">collections.abc.Callable</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">typing.Generic</span></code></p>
+<p>Callable Wrapper for Weight Counter.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-h5database.skeletal">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-h5database.skeletal" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Yf Zh
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

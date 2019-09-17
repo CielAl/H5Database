@@ -1,0 +1,22 @@
+h5database.extractor package
+============================
+
+Submodules
+----------
+
+h5database.extractor.implementation module
+------------------------------------------
+
+.. automodule:: h5database.extractor.implementation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: h5database.extractor
+   :members:
+   :undoc-members:
+   :show-inheritance:

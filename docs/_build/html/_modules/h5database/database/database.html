@@ -1,0 +1,929 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>h5database.database.database &mdash; H5Database 0.4.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> H5Database
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">H5Database</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>h5database.database.database</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for h5database.database.database</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of the core Database class.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="c1"># patch extraction and dataset split: Use 1 pair of train-validation to due to limitation of time</span>
+<span class="kn">import</span> <span class="nn">PIL</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tables</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="k">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span> <span class="nn">.abstract_database</span> <span class="k">import</span> <span class="n">AbstractDB</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">from</span> <span class="nn">h5database.common</span> <span class="k">import</span> <span class="n">Split</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">lazy_property</span> <span class="k">import</span> <span class="n">LazyProperty</span>
+<span class="kn">from</span> <span class="nn">h5database.common</span> <span class="k">import</span> <span class="n">get_path_limit</span>
+
+
+<div class="viewcode-block" id="Database"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database">[docs]</a><span class="k">class</span> <span class="nc">Database</span><span class="p">(</span><span class="n">AbstractDB</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Keyword Args:</span>
+<span class="sd">            **kwargs: See the __init__ of h5database.database.abstract_database.AbstractDB</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Database.generate_table_name"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.generate_table_name">[docs]</a>    <span class="k">def</span> <span class="nf">generate_table_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Override from AbstractDB. Define the output pytable name as database_name_phase.pytable</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase (str): Phase of dataset, e.g. train or val.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pytable_full_path (str): Full file path of exported pytable given the phase.</span>
+<span class="sd">            pytable_dir (str): The export dir of pytable</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">pytable_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">export_dir</span><span class="p">)</span>
+        <span class="n">pytable_full_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pytable_dir</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_name</span><span class="p">,</span> <span class="n">phase</span><span class="p">,</span> <span class="s1">&#39;.pytable&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">pytable_full_path</span><span class="p">,</span> <span class="n">pytable_dir</span></div>
+
+<div class="viewcode-block" id="Database.is_instantiated"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.is_instantiated">[docs]</a>    <span class="k">def</span> <span class="nf">is_instantiated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return false if no hdf5 found on the export path.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase (str): Phase of the pytable, e.g. train.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">file_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_table_name</span><span class="p">(</span><span class="n">phase</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Database.initialize"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.initialize">[docs]</a>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force_overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write files to the new database, if the database is not already created, unless specify the force_overwrite</span>
+<span class="sd">        as True</span>
+<span class="sd">        Args:</span>
+<span class="sd">            force_overwrite (bool): Whether overwrite the pytables if they already exist. Default is False.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_instantiated</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">train_name</span><span class="p">()))</span> <span class="ow">or</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_instantiated</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">val_name</span><span class="p">()))</span> \
+                <span class="ow">or</span> <span class="n">force_overwrite</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_data</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DB exists under the export dir&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_write_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Helper function of initialize.</span>
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filters</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">Filters</span><span class="p">(</span><span class="n">complevel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">comp_level</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">TaskManager</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">as</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_dispatcher</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">phase</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">phases</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">task_dispatcher</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">filters</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_dispatcher</span><span class="o">.</span><span class="n">data_size</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Slice the chunk of patches out of the database.</span>
+<span class="sd">        Precondition: Existence of pytable file. Does not require to call &quot;_write_data&quot; as long as pytables exist</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase_index_tuple: (&#39;train/val&#39;,index)</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            images, labels(ground truth)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_index_tuple</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Enables subscription by phase and index: Database[phase, index]</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase_index_tuple (Tuple[str, int]): Tuple(phase, index). Specify the phase name and the item id.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            All types of data given the index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">phase</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">phase_index_tuple</span>
+        <span class="k">with</span> <span class="n">tables</span><span class="o">.</span><span class="n">open_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generate_table_name</span><span class="p">(</span><span class="n">phase</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pytable</span><span class="p">:</span>
+            <span class="c1"># image = getattr(pytable.root, self.types[0])[index, ]</span>
+            <span class="c1"># label = getattr(pytable.root, self.types[1])[index, ]</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">pytable</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">type_name</span><span class="p">)[</span><span class="n">index</span><span class="p">,</span> <span class="p">]</span> <span class="k">for</span> <span class="n">type_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span>
+
+<div class="viewcode-block" id="Database.size"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Size of the pytable as number of rows (of h5array) given the phase.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase (str): Phase of the pytable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            H5Array Size as int.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">tables</span><span class="o">.</span><span class="n">open_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generate_table_name</span><span class="p">(</span><span class="n">phase</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pytable</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">pytable</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Length. Size of the datatable is defined as the sum of number of entries in all phases.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Size of the database.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span> <span class="k">for</span> <span class="n">phase</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">phases</span><span class="p">])</span>
+
+<div class="viewcode-block" id="Database.peek"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.peek">[docs]</a>    <span class="k">def</span> <span class="nf">peek</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Peek the shape of items given phase.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase (str): Phase of pytable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Shape of data for each type given the phase.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">table_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_table_name</span><span class="p">(</span><span class="n">phase</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">with</span> <span class="n">tables</span><span class="o">.</span><span class="n">open_file</span><span class="p">(</span><span class="n">table_name</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pytable</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">pytable</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">data_type</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">data_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_validate_shape_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_shape</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate whether the types attribute aligns with the keys of the data_shape</span>
+<span class="sd">        Args:</span>
+<span class="sd">            data_shape (Dict[str, Tuple[int, ...]]): data_shape definition given by the constructor.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            AssertionError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">data_shape</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span> <span class="o">==</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Database.get_files"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.get_files">[docs]</a>    <span class="k">def</span> <span class="nf">get_files</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Default behavior getting the source files: get the list of files matching the pattern under the file_dir.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            files (Sequence[str]): Full paths of all selected source files.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">file_pattern</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">file_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pattern</span><span class="p">)</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">file_pattern</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">files</span></div>
+
+<div class="viewcode-block" id="Database.types"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.types">[docs]</a>    <span class="nd">@LazyProperty</span>
+    <span class="k">def</span> <span class="nf">types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">           self._types (str): Types of data specified in the shape_dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_types&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_types</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_types</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_types</span><span class="p">(</span><span class="n">shape_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_types</span></div>
+
+    <span class="c1"># override</span>
+<div class="viewcode-block" id="Database.parse_types"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.parse_types">[docs]</a>    <span class="k">def</span> <span class="nf">parse_types</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shape_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Override from the superclass. Extract the name of data_types from the given shape_dict. \</span>
+<span class="sd">        If shape_dict is not None, then the types are given by its keys. Otherwise use the \</span>
+<span class="sd">        pre-defined train_name and val_name property.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            shape_dict (Dict[str, Tuple[int, ...]]): Name-Value pair of &lt;type, shape&gt;. Default is None.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            type_names (Sequence[str]): Sequence of the names of types.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">shape_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">type_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">shape_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">phases</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">train_name</span><span class="p">(),</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">val_name</span><span class="p">()</span>
+            <span class="n">type_names_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">phase</span> <span class="ow">in</span> <span class="n">phases</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">tables</span><span class="o">.</span><span class="n">open_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generate_table_name</span><span class="p">(</span><span class="n">phase</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pytable</span><span class="p">:</span>
+                    <span class="n">type_names_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">pytable</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">types</span><span class="p">[:]))</span>
+            <span class="n">type_agree</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">type_names_list</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">type_agree</span><span class="p">,</span> <span class="n">f</span><span class="s2">&quot;type_names across phase disagree. &quot;</span> \
+                <span class="n">f</span><span class="s2">&quot;Got: </span><span class="si">{type_names_list}</span><span class="s2">&quot;</span>
+            <span class="n">type_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">type_names_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="n">type_names</span></div>
+
+<div class="viewcode-block" id="Database.init_split"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.init_split">[docs]</a>    <span class="k">def</span> <span class="nf">init_split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stratified_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the data split and shuffle using K_fold. If labels are given, using stratified K-fold</span>
+<span class="sd">        to preserve the label balance in each split.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            stratified_labels (Sequence): A sequence of labels. Default is None.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            splits (Dict[str, np.ndarray]): File split (specified by file_id in the file_list) per phase.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">splits</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">splits</span><span class="p">[</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">train_name</span><span class="p">()],</span> <span class="n">splits</span><span class="p">[</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">val_name</span><span class="p">()]</span> <span class="o">=</span> \
+            <span class="nb">next</span><span class="p">(</span><span class="n">Split</span><span class="o">.</span><span class="n">k_fold_split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_split</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">shuffle</span><span class="p">,</span> <span class="n">file_list</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">file_list</span><span class="p">,</span>
+                                    <span class="n">stratified_labels</span><span class="o">=</span><span class="n">stratified_labels</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">splits</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_init_atoms</span><span class="p">(</span><span class="n">row_atom_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+                    <span class="n">data_shape_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">tables</span><span class="o">.</span><span class="n">Atom</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Init the atoms for all types of data. Size of the atoms is defined by the shape.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            row_atom_func (Callable): Constructor to create the</span>
+<span class="sd">            data_shape_dict (Dict[str, Tuple[int, ...]])): Name-value pair of &lt;type_name, shape&gt;.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            atoms (Dict[str, tables.atom]): Dict of atoms per data type.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">atoms</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data_shape_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">atoms</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">row_atom_func</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">atoms</span>
+
+<div class="viewcode-block" id="Database.refresh_atoms"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.refresh_atoms">[docs]</a>    <span class="k">def</span> <span class="nf">refresh_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Recreate the self._atoms using _init_atoms.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            self._atoms (Dict[str, tables.atom]): Dict of atoms per data type.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_atoms</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_init_atoms</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">row_atom_func</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_shape</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_atoms</span></div>
+
+<div class="viewcode-block" id="Database.prepare_export_directory"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.Database.prepare_export_directory">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">prepare_export_directory</span><span class="p">(</span><span class="n">pytable_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Makedir if the pytable_dir does not exist.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            pytable_dir (str): Target directory.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">pytable_dir</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">pytable_dir</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="DbHelper"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.DbHelper">[docs]</a><span class="k">class</span> <span class="nc">DbHelper</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parent class for all helper classes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="n">AbstractDB</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            database (AbstractDB): Associate the helper class with the target database.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_database</span> <span class="o">=</span> <span class="n">database</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">database</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractDB</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_database</span></div>
+
+
+<div class="viewcode-block" id="TaskManager"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.TaskManager">[docs]</a><span class="k">class</span> <span class="nc">TaskManager</span><span class="p">(</span><span class="n">DbHelper</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pipeline control of all tasks: data extraction/writing, weight collecting, H5Array creation, and etc.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="n">AbstractDB</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the atoms for meta-data (types, valid tag, and splits)</span>
+<span class="sd">        Args:</span>
+<span class="sd">            database (AbstractDB): Associated Database object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">database</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename_atom</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">StringAtom</span><span class="p">(</span><span class="n">itemsize</span><span class="o">=</span><span class="mi">255</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">types_atom</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">StringAtom</span><span class="p">(</span><span class="n">itemsize</span><span class="o">=</span><span class="mi">255</span><span class="p">)</span>
+        <span class="c1"># whether the patch is valid.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valid_atom</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">BoolAtom</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(),</span> <span class="n">dflt</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># save the meta info: split</span>
+        <span class="c1"># noinspection PyArgumentList</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">file_list_atom</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">StringAtom</span><span class="p">(</span><span class="n">itemsize</span><span class="o">=</span><span class="n">get_path_limit</span><span class="p">())</span>
+        <span class="c1"># noinspection PyArgumentList</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">split_atom</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">IntAtom</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(),</span> <span class="n">dflt</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span> <span class="o">=</span> <span class="n">H5Organizer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">group_level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_extractor</span> <span class="o">=</span> <span class="n">DataExtractor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight_writer</span> <span class="o">=</span> <span class="n">WeightCollector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_extractor</span><span class="p">,</span>
+                                             <span class="n">weight_counter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">weight_counter_callable</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_size</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">types</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">types</span>
+
+<div class="viewcode-block" id="TaskManager.write"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.TaskManager.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write data to the H5array by phase.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase (str): Phase of the pytable.</span>
+<span class="sd">            filters (tables.Filter): Filters for H5array. Compression-level specified.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">build_patch_array</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="s1">&#39;filename&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename_atom</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">build_patch_array</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="s1">&#39;file_list&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_list_atom</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">build_patch_array</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="s1">&#39;valid&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_atom</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">build_patch_array</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="s1">&#39;split&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_atom</span><span class="p">,</span> <span class="n">group_level</span><span class="o">=</span><span class="n">H5Organizer</span><span class="o">.</span><span class="n">LEVEL_PATCH</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">build_patch_array</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="s1">&#39;types&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">types_atom</span><span class="p">,</span> <span class="n">group_level</span><span class="o">=</span><span class="n">H5Organizer</span><span class="o">.</span><span class="n">LEVEL_PATCH</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">pytables</span><span class="p">[</span><span class="n">phase</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">refresh_atoms</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_create_h5array_by_types</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">filters</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_all_files</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weight_writer</span><span class="o">.</span><span class="n">write_class_weight_to_db</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="p">,</span> <span class="n">phase</span><span class="p">)</span>
+            <span class="c1"># self.database.splits</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="s1">&#39;split&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">splits</span><span class="p">[</span><span class="n">phase</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="s1">&#39;types&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="s1">&#39;file_list&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">file_list</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_create_h5array_by_types</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create H5arrays given phase.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase (str): Phase of pytable.</span>
+<span class="sd">            filters (tables.Filter): Filters that specified the compression-level.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">category_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">build_patch_array</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">category_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">category_type</span><span class="p">],</span>
+                                                  <span class="n">filters</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__fetch_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Extract patches (images, masks, or labels), valid_tag, and extra_info</span>
+<span class="sd">            Helper function of _fetch_all_files</span>
+<span class="sd">        Args:</span>
+<span class="sd">            file (str): full path of a source file.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            patches (Dict[str, Tuple]): Name-value pair of &lt;type_name, data&gt;. All types of data are aggregated.</span>
+<span class="sd">            valid_tag (): Sequence of bool/int that specify whether a row is valid/qualified.</span>
+<span class="sd">            extra_info (Any): Any extra information to report.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">patches_group</span><span class="p">,</span> <span class="n">valid_tag</span><span class="p">,</span> <span class="n">type_order</span><span class="p">,</span> <span class="n">extra_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_extractor</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="n">patches</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">type_name</span><span class="p">:</span> <span class="n">data</span> <span class="k">for</span> <span class="p">(</span><span class="n">type_name</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">type_order</span><span class="p">,</span> <span class="n">patches_group</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="n">patches</span><span class="p">,</span> <span class="n">valid_tag</span><span class="p">,</span> <span class="n">extra_info</span>
+
+    <span class="k">def</span> <span class="nf">_fetch_all_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Inner iteration to extract data from files.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase ():</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">file_id</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">splits</span><span class="p">[</span><span class="n">phase</span><span class="p">]):</span>
+            <span class="n">file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">file_list</span><span class="p">[</span><span class="n">file_id</span><span class="p">]</span>
+            <span class="n">patches</span><span class="p">,</span> <span class="n">valid_tag</span><span class="p">,</span> <span class="n">extra_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__fetch_data</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">valid_tag</span><span class="p">))</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">write_invalid</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">write_data_to_array</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">patches</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_size</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">weight_writer</span><span class="o">.</span><span class="n">weight_accumulate</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">,</span> <span class="n">patches</span><span class="p">,</span> <span class="n">extra_info</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">write_file_names_to_array</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">patches</span><span class="p">,</span> <span class="n">category_type</span><span class="o">=</span><span class="s2">&quot;filename&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="s1">&#39;valid&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">valid_tag</span><span class="p">)</span>
+
+                <span class="o">...</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># do nothing. leave it blank here for: (1) test. (2) future works</span>
+                <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Entry of with statement to write data.</span>
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">type_name</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flush the h5array upon exit.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            type_name ():</span>
+<span class="sd">            value ():</span>
+<span class="sd">            traceback ():</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+
+<div class="viewcode-block" id="TaskManager.flush"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.TaskManager.flush">[docs]</a>    <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flush the h5arrays of all phases.</span>
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">phase</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">phases</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">flush</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DataExtractor"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.DataExtractor">[docs]</a><span class="k">class</span> <span class="nc">DataExtractor</span><span class="p">(</span><span class="n">DbHelper</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Controller of Data Extration workflow.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="n">AbstractDB</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">database</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_extract_callable</span> <span class="o">=</span> <span class="n">database</span><span class="o">.</span><span class="n">extract_callable</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isclass</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_extract_callable</span><span class="p">),</span> <span class="s2">&quot;Expect an instantiated callable. &quot;</span> \
+                                                            <span class="s2">&quot;A class variable is encountered.&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">meta</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_default_meta</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">meta</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_meta_load_database</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_meta_load_database</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="n">AbstractDB</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Associate the target database fields to the &quot;meta&quot; field that is passed to the Extractor.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            database (AbstractDB): Associated database.</span>
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">database</span><span class="p">,</span> <span class="s1">&#39;data_shape&#39;</span><span class="p">),</span> <span class="s2">&quot;data_shape uninitialized&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;data_shape&#39;</span><span class="p">:</span> <span class="n">database</span><span class="o">.</span><span class="n">data_shape</span><span class="p">})</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">extract_callable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_callable</span>
+
+    <span class="c1"># part of common default values</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_default_meta</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">meta</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fill-in the meta.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            meta ():</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;stride_size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;stride_size&#39;</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;tissue_area_thresh&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;tissue_area_thresh&#39;</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">)</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;interp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;interp&#39;</span><span class="p">,</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">NONE</span><span class="p">)</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;resize&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;resize&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># meta = SimpleNamespace(**meta)</span>
+        <span class="k">return</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="DataExtractor.extract"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.DataExtractor.extract">[docs]</a>    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extract data, e.g. patches from the source file.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            file (str): Full file path.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple[object, ...] as the group of data extracted from the file. Length of the object</span>
+<span class="sd">            must be the same.</span>
+<span class="sd">            Sequence[bool] as a sequence of validation tag, identifying whether the corresponding</span>
+<span class="sd">            object is qualified.</span>
+<span class="sd">            Sequence[str]</span>
+<span class="sd">            object as</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_callable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="WeightCollector"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.WeightCollector">[docs]</a><span class="k">class</span> <span class="nc">WeightCollector</span><span class="p">(</span><span class="n">DbHelper</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Controller.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="n">AbstractDB</span><span class="p">,</span> <span class="n">extractor</span><span class="p">:</span> <span class="n">DataExtractor</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            database (AbstractDB):  Associated Database.</span>
+<span class="sd">            extractor (DataExtractor):  Associated Extractor Callable</span>
+<span class="sd">            **kwargs ():</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">database</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight_counter_callable</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;weight_counter&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">weight_counter_callable</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_totals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_weight_storage</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_extractor</span> <span class="o">=</span> <span class="n">extractor</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">extractor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extractor</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">totals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The cached class counts.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_totals</span>
+
+<div class="viewcode-block" id="WeightCollector.is_count_weight"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.WeightCollector.is_count_weight">[docs]</a>    <span class="k">def</span> <span class="nf">is_count_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate Weight Collection should be performed.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            True only if the &quot;enable_weight&quot; field in the associated database obj is true, and class \</span>
+<span class="sd">            names are defined.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">enable_weight</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">classes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="WeightCollector.weight_accumulate"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.WeightCollector.weight_accumulate">[docs]</a>    <span class="k">def</span> <span class="nf">weight_accumulate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                          <span class="n">type_names</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                          <span class="n">patch_group</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+                          <span class="n">extra_information</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A wrapper to accumulate class count, if is_count_weight is validated, given the</span>
+<span class="sd">        callable that defines the behavior of weight accumulation.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            file (): Filename.</span>
+<span class="sd">            type_names (): Type names defined in the dataset.</span>
+<span class="sd">            patch_group (): Extracted data of all types from the source file.</span>
+<span class="sd">            extra_information (): Any extra parameters to pass.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_count_weight</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weight_counter_callable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                         <span class="n">file</span><span class="p">,</span>
+                                         <span class="n">type_names</span><span class="p">,</span>
+                                         <span class="n">patch_group</span><span class="p">,</span>
+                                         <span class="n">extra_information</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_new_weight_storage</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_count_weight</span><span class="p">():</span>
+            <span class="n">totals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">classes</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">totals</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">totals</span>
+
+<div class="viewcode-block" id="WeightCollector.write_class_weight_to_db"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.WeightCollector.write_class_weight_to_db">[docs]</a>    <span class="k">def</span> <span class="nf">write_class_weight_to_db</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hdf5_organizer</span><span class="p">,</span> <span class="n">phase</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_count_weight</span><span class="p">():</span>
+            <span class="n">n_pixels</span> <span class="o">=</span> <span class="n">hdf5_organizer</span><span class="o">.</span><span class="n">build_meta_data</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="s1">&#39;class_sizes&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">totals</span><span class="p">)</span>
+            <span class="n">n_pixels</span><span class="p">[:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">totals</span></div></div>
+
+
+<div class="viewcode-block" id="H5Organizer"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.H5Organizer">[docs]</a><span class="k">class</span> <span class="nc">H5Organizer</span><span class="p">(</span><span class="n">DbHelper</span><span class="p">):</span>
+    <span class="n">LEVEL_PATCH</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">LEVEL_GROUP</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="n">AbstractDB</span><span class="p">,</span> <span class="n">group_level</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            database (): Associated Database instance.</span>
+<span class="sd">            group_level (): 0 if no grouping. 1 if group data (e.g. patches) extracted from one file</span>
+<span class="sd">                            in a row of a VLarray. Each row of a VLarray is a list of data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">database</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_h5arrays</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_empty_h5arrays_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phases</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pytables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_pytables_from_database</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phases</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">group_level</span> <span class="o">=</span> <span class="n">group_level</span>
+
+<div class="viewcode-block" id="H5Organizer.flush"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.H5Organizer.flush">[docs]</a>    <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">type_name</span><span class="p">,</span> <span class="n">h5array</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="n">type_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pytables</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">h5arrays</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h5arrays</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">pytables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pytables</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">atoms</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">phases</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">phases</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">types</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">types</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_h5_shapes</span><span class="p">(</span><span class="n">chunk_width</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Helper function to define the shape of the h5array.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            chunk_width ():</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chunk_shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">chunk_width</span><span class="p">]</span>
+        <span class="n">h5_shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">h5_shape</span><span class="p">,</span> <span class="n">chunk_shape</span>
+
+    <span class="sd">&#39;&#39;&#39;Precondition:h5arrays and pytables initialized/created</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+<div class="viewcode-block" id="H5Organizer.build_patch_array"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.H5Organizer.build_patch_array">[docs]</a>    <span class="k">def</span> <span class="nf">build_patch_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                          <span class="n">category_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                          <span class="n">atom</span><span class="p">:</span> <span class="n">tables</span><span class="o">.</span><span class="n">Atom</span><span class="p">,</span>
+                          <span class="n">filters</span><span class="p">:</span> <span class="n">tables</span><span class="o">.</span><span class="n">Filters</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">expectedrows</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">group_level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create H5array for extracted data.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase (): Phase Key.</span>
+<span class="sd">            category_type (): Type name.</span>
+<span class="sd">            atom (): Type of the atom for the array.</span>
+<span class="sd">            filters (): Filter instance for the H5array</span>
+<span class="sd">            expectedrows (): User Estimation of number of rows of the H5array.</span>
+<span class="sd">            group_level (): Whether data are grouped. If 0: no grouping. \</span>
+<span class="sd">            If 1: group by source file, using VLarray.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            self.h5arrays</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">h5_shape</span><span class="p">,</span> <span class="n">chunk_shape</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_get_h5_shapes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">chunk_width</span><span class="p">)</span>
+
+        <span class="c1"># **kwargs for the create_func</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;atom&#39;</span><span class="p">:</span> <span class="n">atom</span><span class="p">,</span>
+            <span class="s1">&#39;filters&#39;</span><span class="p">:</span> <span class="n">filters</span><span class="p">,</span>
+            <span class="s1">&#39;chunkshape&#39;</span><span class="p">:</span> <span class="n">chunk_shape</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">expectedrows</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expectedrows</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">params</span><span class="p">[</span><span class="s1">&#39;expectedrows&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">expectedrows</span>
+        <span class="k">if</span> <span class="n">group_level</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">group_level</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_level</span>
+        <span class="k">if</span> <span class="n">group_level</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">LEVEL_PATCH</span><span class="p">:</span>
+            <span class="n">create_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pytables</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span><span class="o">.</span><span class="n">create_earray</span>
+            <span class="n">params</span><span class="p">[</span><span class="s1">&#39;shape&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">h5_shape</span>
+        <span class="k">elif</span> <span class="n">group_level</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">LEVEL_GROUP</span><span class="p">:</span>
+            <span class="n">create_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pytables</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span><span class="o">.</span><span class="n">create_vlarray</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid Group Level:&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">group_level</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="n">category_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">create_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pytables</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">category_type</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="n">category_type</span><span class="p">]</span></div>
+
+    <span class="c1"># carrays. metadata</span>
+<div class="viewcode-block" id="H5Organizer.build_meta_data"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.H5Organizer.build_meta_data">[docs]</a>    <span class="k">def</span> <span class="nf">build_meta_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">category_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">template_data</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create H5Array for metadata, which is not tied to extracted data array.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase ():</span>
+<span class="sd">            category_type ():</span>
+<span class="sd">            template_data ():</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="n">category_type</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pytables</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span>\
+                                                  <span class="o">.</span><span class="n">create_carray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pytables</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span><span class="o">.</span><span class="n">root</span><span class="p">,</span>
+                                                                 <span class="n">category_type</span><span class="p">,</span>
+                                                                 <span class="n">tables</span><span class="o">.</span><span class="n">Atom</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">template_data</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+                                                                 <span class="n">template_data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="n">category_type</span><span class="p">]</span></div>
+
+    <span class="c1"># todo</span>
+<div class="viewcode-block" id="H5Organizer.write_data_to_array"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.H5Organizer.write_data_to_array">[docs]</a>    <span class="k">def</span> <span class="nf">write_data_to_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">,</span> <span class="n">patches_dict</span><span class="p">,</span> <span class="n">data_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">type_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="n">type_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">patches_dict</span><span class="p">[</span><span class="n">type_name</span><span class="p">])</span>
+            <span class="c1"># write size of data into h5 - todo</span>
+            <span class="k">if</span> <span class="n">data_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">data_size</span><span class="p">[</span><span class="n">type_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_size</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">type_name</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">patches_dict</span><span class="p">[</span><span class="n">type_name</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="c1"># todo</span>
+<div class="viewcode-block" id="H5Organizer.write_file_names_to_array"><a class="viewcode-back" href="../../../h5database.database.html#h5database.database.database.H5Organizer.write_file_names_to_array">[docs]</a>    <span class="k">def</span> <span class="nf">write_file_names_to_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                                  <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                                  <span class="n">patches</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+                                  <span class="n">category_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;filename&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write the source filename of a group of corresponding extracted</span>
+<span class="sd">        data to an h5array, given the phase and type.</span>
+<span class="sd">        Perform write-in if only patches is not None, and each type name of &quot;patches&quot;</span>
+<span class="sd">        is defined in the database.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phase (): Phase key.</span>
+<span class="sd">            file ():  Full filename</span>
+<span class="sd">            patches (): Extracted data.</span>
+<span class="sd">            category_type (): Type name of this field. Default &quot;filename&quot;</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># (patches[self.types[0]] is not None) and (patches[self.types[1]] is not None)</span>
+        <span class="k">if</span> <span class="n">patches</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">([</span><span class="n">patches</span><span class="p">[</span><span class="n">type_name</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">type_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">]):</span>
+            <span class="c1"># [file for x in range(patches[self.types[0]].shape[0])]</span>
+            <span class="n">filename_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">file</span><span class="p">]</span> <span class="o">*</span> <span class="n">patches</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">types</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">filename_list</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="n">category_type</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">filename_list</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="o">...</span>  <span class="c1"># do nothing. leave it here for tests - todo</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_empty_h5arrays_dict</span><span class="p">(</span><span class="n">phases</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">types</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Init the new empty dictionary to hold h5arrays by phase and data type.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phases (): phase key.</span>
+<span class="sd">            types ():  Data type name, e.g. &quot;img&quot; or &quot;mask&quot;.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">h5arrays</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">phase</span> <span class="ow">in</span> <span class="n">phases</span><span class="p">:</span>
+            <span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">]:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">type_name</span> <span class="ow">in</span> <span class="n">types</span><span class="p">:</span>
+                <span class="n">h5arrays</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="n">type_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">h5arrays</span>
+
+    <span class="k">def</span> <span class="nf">_new_pytables_from_database</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phases</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">tables</span><span class="o">.</span><span class="n">file</span><span class="o">.</span><span class="n">File</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the file handle in the Pytable Dictionary.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            phases (): phase key, e.g. &#39;train&#39; or &#39;val&#39;</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict[str, tables.file.File]. Dict of pytable handle by phase.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pytables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">tables</span><span class="o">.</span><span class="n">file</span><span class="o">.</span><span class="n">File</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">phase</span> <span class="ow">in</span> <span class="n">phases</span><span class="p">:</span>
+            <span class="n">pytable_full_path</span><span class="p">,</span> <span class="n">pytable_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">generate_table_name</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+            <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">)</span><span class="o">.</span><span class="n">prepare_export_directory</span><span class="p">(</span><span class="n">pytable_dir</span><span class="p">)</span>
+            <span class="n">pytables</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">open_file</span><span class="p">(</span><span class="n">pytable_full_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;w&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pytables</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Yf Zh
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

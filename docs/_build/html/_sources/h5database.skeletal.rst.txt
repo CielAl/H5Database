@@ -1,0 +1,30 @@
+h5database.skeletal package
+===========================
+
+Submodules
+----------
+
+h5database.skeletal.abstract\_extractor module
+----------------------------------------------
+
+.. automodule:: h5database.skeletal.abstract_extractor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+h5database.skeletal.abstract\_weight\_counter module
+----------------------------------------------------
+
+.. automodule:: h5database.skeletal.abstract_weight_counter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: h5database.skeletal
+   :members:
+   :undoc-members:
+   :show-inheritance:

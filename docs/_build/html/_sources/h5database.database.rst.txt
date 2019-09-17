@@ -1,0 +1,30 @@
+h5database.database package
+===========================
+
+Submodules
+----------
+
+h5database.database.abstract\_database module
+---------------------------------------------
+
+.. automodule:: h5database.database.abstract_database
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+h5database.database.database module
+-----------------------------------
+
+.. automodule:: h5database.database.database
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: h5database.database
+   :members:
+   :undoc-members:
+   :show-inheritance:

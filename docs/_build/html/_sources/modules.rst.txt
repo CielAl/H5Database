@@ -1,0 +1,7 @@
+h5database
+==========
+
+.. toctree::
+   :maxdepth: 4
+
+   h5database

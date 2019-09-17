@@ -105,7 +105,7 @@ class AbstractDB(ABC):
     @abstractmethod
     def generate_table_name(self, param):
         """
-            Define the filename of the pytables
+        Define the filename of the pytables
         Args:
             param ():
 

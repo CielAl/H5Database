@@ -1,0 +1,22 @@
+h5database.common package
+=========================
+
+Submodules
+----------
+
+h5database.common.split module
+------------------------------
+
+.. automodule:: h5database.common.split
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: h5database.common
+   :members:
+   :undoc-members:
+   :show-inheritance:

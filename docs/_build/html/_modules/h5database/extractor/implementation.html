@@ -1,0 +1,450 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>h5database.extractor.implementation &mdash; H5Database 0.4.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> H5Database
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">H5Database</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>h5database.extractor.implementation</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for h5database.extractor.implementation</h1><div class="highlight"><pre>
+<span></span><span class="c1"># noinspection PyProtectedMember</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">import</span> <span class="nn">cv2</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">h5database.database.database</span> <span class="k">import</span> <span class="n">DataExtractor</span>
+<span class="kn">import</span> <span class="nn">PIL</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">h5database.skeletal.abstract_extractor</span> <span class="k">import</span> <span class="n">ExtractCallable</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;ExtSuperResolution&#39;</span><span class="p">,</span> <span class="s1">&#39;ExtTissueByMask&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="ExtSuperResolution"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtSuperResolution">[docs]</a><span class="k">class</span> <span class="nc">ExtSuperResolution</span><span class="p">(</span><span class="n">ExtractCallable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Implementation of ExtractCallable for Super Resolution data, where</span>
+<span class="sd">        the input is the blurred image, and the label is the ground truth (original image).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ExtSuperResolution.type_order"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtSuperResolution.type_order">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">type_order</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Annotation of designed data type order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s1">&#39;img&#39;</span><span class="p">,</span> <span class="s1">&#39;label&#39;</span><span class="p">]</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_label_key_str</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;label&#39;</span>
+
+    <span class="c1"># override</span>
+<div class="viewcode-block" id="ExtSuperResolution.get_inputs"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtSuperResolution.get_inputs">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_inputs</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">DataExtractor</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">patch_types</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">data_shape</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
+                   <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Prepare the inputs: low resolution image and the ground truth.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            obj (): Associated DataExtractor obj.</span>
+<span class="sd">            file ():    Path of the source file.</span>
+<span class="sd">            patch_types (): Data type names of all target inputs.</span>
+<span class="sd">            data_shape ():  Shapes of data.</span>
+<span class="sd">        Keyword Args:</span>
+<span class="sd">            resize  (float): Resize factor in interval of (0, 1) for both width and height.</span>
+<span class="sd">            interp (int): Interpolation Flags for cv2.resize.</span>
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">resize</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;resize&#39;</span><span class="p">]</span>
+        <span class="n">interp</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;interp&#39;</span><span class="p">]</span>
+
+        <span class="n">img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2RGB</span><span class="p">)</span>
+        <span class="n">img_down</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">fx</span><span class="o">=</span><span class="n">resize</span><span class="p">,</span> <span class="n">fy</span><span class="o">=</span><span class="n">resize</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="n">interp</span><span class="p">)</span>
+        <span class="n">img_low_resolution</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">img_down</span><span class="p">,</span> <span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">interpolation</span><span class="o">=</span><span class="n">interp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">img_low_resolution</span><span class="p">,</span> <span class="n">img</span></div>
+
+    <span class="c1"># override</span>
+<div class="viewcode-block" id="ExtSuperResolution.extract"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtSuperResolution.extract">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span><span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">type_order</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">obj</span><span class="p">:</span> <span class="n">DataExtractor</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                <span class="n">data_shape</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> \
+            <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tuple</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Simple patchification of the low resolution image/ground truth obtained from the &quot;get_inputs&quot;.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            inputs ():  Input tuple.</span>
+<span class="sd">            type_order ():  Defined type order for the output.</span>
+<span class="sd">            obj (): Associated DataExtractor.</span>
+<span class="sd">            file ():</span>
+<span class="sd">            data_shape ():</span>
+<span class="sd">            **kwargs ():</span>
+<span class="sd">        Keyword Args:</span>
+<span class="sd">            stride_size (int): Stride size of patch extraction. Determine the overlapping ratio.</span>
+<span class="sd">            flatten (bool): Whether returns a flattened patch array or retain the original shape, given the</span>
+<span class="sd">                            patch location. Default is True.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            patches (Tuple): Tuple of output arrays grouped by types in a tuple.</span>
+<span class="sd">            is_valid (np.ndarray):</span>
+<span class="sd">            type_order (Sequence[str]): An ordered sequence of type names.</span>
+<span class="sd">            extra_info (Any): Placeholder for anything else to report.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stride_size</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;stride_size&#39;</span><span class="p">]</span>
+        <span class="n">flatten</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;flatten&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">type_order</span> <span class="o">=</span> <span class="n">ExtSuperResolution</span><span class="o">.</span><span class="n">type_order</span><span class="p">()</span>
+        <span class="c1"># todo if scalar</span>
+        <span class="n">patches</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">ExtractCallable</span><span class="o">.</span><span class="n">extract_patch</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">data_shape</span><span class="p">[</span><span class="n">type_key</span><span class="p">],</span> <span class="n">stride_size</span><span class="p">,</span>
+                                                      <span class="n">flatten</span><span class="o">=</span><span class="n">flatten</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">type_key</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">type_order</span><span class="p">)</span>
+                        <span class="p">)</span>
+        <span class="c1"># shape[-3:end] is the size of a single patch, regardless of flatten</span>
+        <span class="n">num_patches</span> <span class="o">=</span> <span class="n">ExtractCallable</span><span class="o">.</span><span class="n">patch_numbers</span><span class="p">(</span><span class="n">patches</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n_dims</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">data_shape</span><span class="p">[</span><span class="n">type_order</span><span class="p">[</span><span class="mi">0</span><span class="p">]]))</span>
+        <span class="n">is_valid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
+        <span class="n">extra_info</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">patches</span><span class="p">,</span> <span class="n">is_valid</span><span class="p">,</span> <span class="n">type_order</span><span class="p">,</span> <span class="n">extra_info</span></div></div>
+
+
+<div class="viewcode-block" id="ExtTissueByMask"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtTissueByMask">[docs]</a><span class="k">class</span> <span class="nc">ExtTissueByMask</span><span class="p">(</span><span class="n">ExtractCallable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extraction of Tissue patches from PNG ROI, screened by a corresponding tissue binary mask.</span>
+<span class="sd">        todo: Refactor and generalize it for data without mask</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ExtTissueByMask.get_mask_name"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtTissueByMask.get_mask_name">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_mask_name</span><span class="p">(</span><span class="n">img_full_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">mask_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;_mask&#39;</span><span class="p">,</span> <span class="n">extension</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;png&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Legacy codes. Map the source image file name to the mask file name.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            img_full_path ():</span>
+<span class="sd">            mask_dir ():</span>
+<span class="sd">            suffix ():</span>
+<span class="sd">            extension ():</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">im_base_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">img_full_path</span><span class="p">)</span>
+        <span class="n">img_name_file_part</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">im_base_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">mask_name</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;</span><span class="si">{img_name_file_part}{suffix}</span><span class="s2">.</span><span class="si">{extension}</span><span class="s2">&quot;</span>
+        <span class="n">full_mask_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mask_dir</span><span class="p">,</span> <span class="n">mask_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">full_mask_name</span></div>
+
+    <span class="c1"># override</span>
+<div class="viewcode-block" id="ExtTissueByMask.type_order"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtTissueByMask.type_order">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">type_order</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Annotation of designed data type order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s1">&#39;img&#39;</span><span class="p">,</span> <span class="s1">&#39;mask&#39;</span><span class="p">,</span> <span class="s1">&#39;label&#39;</span><span class="p">]</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_label_key_str</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;label&#39;</span>
+
+    <span class="c1"># override</span>
+<div class="viewcode-block" id="ExtTissueByMask.get_inputs"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtTissueByMask.get_inputs">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_inputs</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">DataExtractor</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">patch_types</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">data_shape</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
+                   <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Prepare the reading of image, mask files and the class id.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            obj (): Associated DataExtractor obj.</span>
+<span class="sd">            file ():    Path of the source file.</span>
+<span class="sd">            patch_types (): Data type names of all target inputs.</span>
+<span class="sd">            data_shape ():  Shapes of data.</span>
+<span class="sd">        Keyword Args:</span>
+<span class="sd">            resize  (float): Resize factor in interval of (0, 1) for both width and height.</span>
+<span class="sd">            interp (int): Interpolation Flags for cv2.resize.</span>
+<span class="sd">            mask_suffix (str): file suffix of masks for the mapping from source_img_name --&gt; mask_name.</span>
+<span class="sd">                                Default: &quot;_mask&quot;</span>
+<span class="sd">            mask_ext (str): File extension of mask files. Default: &quot;png&quot;.</span>
+<span class="sd">            mask_dir (str): File Directory of all masks.</span>
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">resize</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;resize&#39;</span><span class="p">]</span>
+        <span class="n">interp</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;interp&#39;</span><span class="p">,</span> <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">NONE</span><span class="p">)</span>
+        <span class="n">suffix</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mask_suffix&#39;</span><span class="p">,</span> <span class="s1">&#39;_mask&#39;</span><span class="p">)</span>
+        <span class="n">extension</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mask_ext&#39;</span><span class="p">,</span> <span class="s1">&#39;png&#39;</span><span class="p">)</span>
+        <span class="n">mask_dir</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;mask_dir&#39;</span><span class="p">]</span>
+
+        <span class="c1"># read and resize source image.</span>
+        <span class="n">image_whole</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2RGB</span><span class="p">)</span>
+        <span class="n">image_whole</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">image_whole</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">fx</span><span class="o">=</span><span class="n">resize</span><span class="p">,</span> <span class="n">fy</span><span class="o">=</span><span class="n">resize</span><span class="p">,</span>
+                                 <span class="n">interpolation</span><span class="o">=</span><span class="n">interp</span><span class="p">)</span>
+        <span class="c1"># read and resize the corresponding masks</span>
+        <span class="n">mask_name</span> <span class="o">=</span> <span class="n">ExtTissueByMask</span><span class="o">.</span><span class="n">get_mask_name</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">mask_dir</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="n">suffix</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="n">extension</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">mask_name</span><span class="p">)</span>
+        <span class="n">mask_whole</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">mask_name</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">IMREAD_GRAYSCALE</span><span class="p">)</span>
+        <span class="n">mask_whole</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">mask_whole</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_BINARY</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">mask_whole</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">mask_whole</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">fx</span><span class="o">=</span><span class="n">resize</span><span class="p">,</span> <span class="n">fy</span><span class="o">=</span><span class="n">resize</span><span class="p">,</span>
+                                <span class="n">interpolation</span><span class="o">=</span><span class="n">interp</span><span class="p">)</span>
+        <span class="c1"># mask_whole = cv2.cvtColor(mask_whole, cv2.COLOR_BGR2RGB)</span>
+        <span class="c1"># basename of the file</span>
+
+        <span class="c1"># obtain the class id from the file name.</span>
+        <span class="n">basename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">obj</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">classes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;Expect non-None classes&#39;</span>
+        <span class="n">class_id</span> <span class="o">=</span> \
+            <span class="p">[</span><span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">classes</span><span class="p">))</span> <span class="k">if</span>
+             <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">basename</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
+             <span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">image_whole</span><span class="p">,</span> <span class="n">mask_whole</span><span class="p">,</span> <span class="n">class_id</span></div>
+
+    <span class="c1"># override</span>
+<div class="viewcode-block" id="ExtTissueByMask.extract"><a class="viewcode-back" href="../../../h5database.extractor.html#h5database.extractor.implementation.ExtTissueByMask.extract">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span><span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">type_order</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">obj</span><span class="p">:</span> <span class="n">DataExtractor</span><span class="p">,</span>
+                <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data_shape</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>\
+            <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            inputs ():  Input tuple.</span>
+<span class="sd">            type_order ():  Defined type order for the output.</span>
+<span class="sd">            obj (): Associated DataExtractor.</span>
+<span class="sd">            file ():</span>
+<span class="sd">            data_shape ():</span>
+<span class="sd">            **kwargs ():</span>
+<span class="sd">        Keyword Args:</span>
+<span class="sd">            stride_size (int): Stride size of patch extraction. Determine the overlapping ratio.</span>
+<span class="sd">            flatten (bool): Whether returns a flattened patch array or retain the original shape, given the \</span>
+<span class="sd">                patch location. Default is True.</span>
+<span class="sd">            dispose (bool): Flat that whether dispose the &quot;invalid&quot; patches, with valid tag of 0, \</span>
+<span class="sd">                if tissue% is too low. Explicitly discard the result from the array \</span>
+<span class="sd">                only if `flatten` is True.</span>
+<span class="sd">            tissue_area_thresh (bool): Percentage of minimum required tissue area.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (patches_im, patches_mask, labels): arrays of patchified images/masks/labels.</span>
+<span class="sd">            valid_tag (np.ndarray): Array of valid tag by each single patch.</span>
+<span class="sd">            type_order (Sequence[str]): A sequence of ordered type names.</span>
+<span class="sd">            extra_info (Any): Placeholder for any other extra information to export.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># image_whole, class_id, mask_whole = inputs</span>
+        <span class="n">stride_size</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;stride_size&#39;</span><span class="p">]</span>
+        <span class="n">flatten</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;flatten&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">dispose</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;dispose&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">thresh</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;tissue_area_thresh&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># high pass</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;thresh</span><span class="si">{thresh}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># extract and order the patches</span>
+        <span class="n">patch_out</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                            <span class="n">ExtractCallable</span><span class="o">.</span><span class="n">extract_patch</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="n">data_shape</span><span class="p">[</span><span class="n">type_key</span><span class="p">],</span> <span class="n">stride_size</span><span class="p">,</span>
+                                                          <span class="n">flatten</span><span class="o">=</span><span class="n">flatten</span><span class="p">)</span>
+                            <span class="k">for</span> <span class="n">groups</span><span class="p">,</span> <span class="n">type_key</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">type_order</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span>
+                             <span class="p">)</span>
+        <span class="c1"># manually define the order of data in patch_out.</span>
+        <span class="n">patches_im</span><span class="p">,</span> <span class="n">patches_mask</span> <span class="o">=</span> <span class="n">patch_out</span>
+        <span class="c1"># calculate the # of patch</span>
+        <span class="n">num_patches</span> <span class="o">=</span> <span class="n">ExtractCallable</span><span class="o">.</span><span class="n">patch_numbers</span><span class="p">(</span><span class="n">patch_out</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n_dims</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">data_shape</span><span class="p">[</span><span class="n">type_order</span><span class="p">[</span><span class="mi">0</span><span class="p">]]))</span>
+        <span class="c1"># curate/multiply the label. inputs[-1] is the label, given by the type order.</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">inputs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span><span class="o">*</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+
+        <span class="c1"># type_order[-1] as the type of mask.</span>
+        <span class="c1"># mask_axis as the dimension of single masks in the high dimensional mask patch-array.</span>
+        <span class="c1"># excluded in the mean calculation</span>
+        <span class="n">mask_axis</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                            <span class="nb">range</span><span class="p">(</span>
+                                <span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">data_shape</span><span class="p">[</span><span class="n">type_order</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]]),</span>
+                                <span class="mi">0</span><span class="p">)</span>
+                        <span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">mask_axis</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="c1"># Tissue screening by mask region.</span>
+        <span class="n">valid_patch</span> <span class="o">=</span> <span class="n">patches_mask</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="n">mask_axis</span><span class="p">)</span>
+        <span class="n">valid_tag</span> <span class="o">=</span> <span class="n">valid_patch</span> <span class="o">&gt;=</span> <span class="n">thresh</span>
+
+        <span class="c1"># whether flatten and dispose the output.</span>
+        <span class="c1"># Assume</span>
+        <span class="k">if</span> <span class="n">flatten</span> <span class="ow">and</span> <span class="n">dispose</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">valid_tag</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">patches_im</span> <span class="o">=</span> <span class="n">patches_im</span><span class="p">[</span><span class="n">valid_tag</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="n">patches_mask</span> <span class="o">=</span> <span class="n">patches_mask</span><span class="p">[</span><span class="n">valid_tag</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">valid_tag</span><span class="o">.</span><span class="n">sum</span><span class="p">()]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># if no flattening, no disposing, or both, then simply set 0.</span>
+            <span class="n">patches_im</span><span class="p">[</span><span class="n">valid_tag</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">extra_info</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># validate the length of image patch array and mask patch array</span>
+        <span class="k">assert</span> <span class="n">patches_im</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">patches_mask</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">patches_im</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">),</span> <span class="n">f</span><span class="s2">&quot;Length mismatch&quot;</span> \
+            <span class="n">f</span><span class="s2">&quot;</span><span class="si">{patches_im.shape[0]}</span><span class="s2">, </span><span class="si">{patches_mask.shape[0]}</span><span class="s2">, {len(labels)}&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">patches_im</span><span class="p">,</span> <span class="n">patches_mask</span><span class="p">,</span> <span class="n">labels</span><span class="p">),</span> <span class="n">valid_tag</span><span class="p">,</span> <span class="n">type_order</span><span class="p">,</span> <span class="n">extra_info</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Yf Zh
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

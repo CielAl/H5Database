@@ -46,11 +46,11 @@ class ExtractCallable(ABC, Callable):
     @staticmethod
     def validate_shape(patch_groups: Sequence[Any], type_order: Sequence[str], data_shape: Dict[str, Tuple]):
         """
-        Validate whether the shape of each element of the arrays in the patch_groups matches the definition in the dict
-        of data_shape.
+        Validate whether the shape of each element of the arrays in the patch_groups matches \
+         the definition in the dict of data_shape.
         Args:
-            patch_groups (): Sequence of different types of data. i.e. (data_type1_array, data_type2_array, ...)
-                                Assumption: leading dimension of data_typex_array is the length of the data array.
+            patch_groups (): Sequence of different types of data. i.e. (data_type1_array, data_type2_array, ...) \
+                Assumption: leading dimension of data_typex_array is the length of the data array.
             type_order ():  The order of types of data in patch_groups.
             data_shape ():  Dictionary of shape of a single element in the data_array given the type.
 
@@ -224,8 +224,8 @@ class ExtractCallable(ABC, Callable):
     @classmethod
     def label_key(cls) -> str:
         """
-            The attribute name of the "label" (output, ground truth, etc.) entity.
-            Must be defined in type_order as well.
+        The attribute name of the "label" (output, ground truth, etc.) entity. \
+        Must be defined in type_order as well.
         Returns:
             key (str): The attribute name of the label.
         Raises:

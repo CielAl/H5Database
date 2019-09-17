@@ -1,0 +1,33 @@
+h5database package
+==================
+
+Subpackages
+-----------
+
+.. toctree::
+
+   h5database.common
+   h5database.database
+   h5database.extractor
+   h5database.skeletal
+   h5database.weight
+
+Submodules
+----------
+
+h5database.kfold module
+-----------------------
+
+.. automodule:: h5database.kfold
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: h5database
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -190,7 +190,6 @@ class ExtTissueByMask(ExtractCallable):
                 file: str, data_shape: Dict[str, Tuple[int, ...]], **kwargs)\
             -> Tuple[Tuple[object, ...], Sequence[bool], Sequence[str], Any]:
         """
-
         Args:
             inputs ():  Input tuple.
             type_order ():  Defined type order for the output.
@@ -200,11 +199,11 @@ class ExtTissueByMask(ExtractCallable):
             **kwargs ():
         Keyword Args:
             stride_size (int): Stride size of patch extraction. Determine the overlapping ratio.
-            flatten (bool): Whether returns a flattened patch array or retain the original shape, given the
-                            patch location. Default is True.
-            dispose (bool): Flat that whether dispose the "invalid" patches, with valid tag of 0,
-                            if tissue% is too low. Explicitly discard the result from the array
-                             only if `flatten` is True.
+            flatten (bool): Whether returns a flattened patch array or retain the original shape, given the \
+                patch location. Default is True.
+            dispose (bool): Flat that whether dispose the "invalid" patches, with valid tag of 0, \
+                if tissue% is too low. Explicitly discard the result from the array \
+                only if `flatten` is True.
             tissue_area_thresh (bool): Percentage of minimum required tissue area.
 
         Returns:

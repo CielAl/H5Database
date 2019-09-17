@@ -9,12 +9,13 @@ import numpy as np
 import tables
 from tqdm import tqdm
 
-from h5database.database.abstract_database import AbstractDB
+from .abstract_database import AbstractDB
 import glob
 from h5database.common import Split
 from typing import Dict, Tuple, Sequence, Callable, Any
 from lazy_property import LazyProperty
 from h5database.common import get_path_limit
+
 
 class Database(AbstractDB):
 
@@ -175,9 +176,9 @@ class Database(AbstractDB):
     # override
     def parse_types(self, shape_dict: Dict[str, Tuple[int, ...]] = None) -> Sequence[str]:
         """
-        Override from the superclass. Extract the name of data_types from the given shape_dict.
-            If shape_dict is not None, then the types are given by its keys. Otherwise use the
-            pre-defined train_name and val_name property.
+        Override from the superclass. Extract the name of data_types from the given shape_dict. \
+        If shape_dict is not None, then the types are given by its keys. Otherwise use the \
+        pre-defined train_name and val_name property.
         Args:
             shape_dict (Dict[str, Tuple[int, ...]]): Name-Value pair of <type, shape>. Default is None.
         Returns:
@@ -215,7 +216,7 @@ class Database(AbstractDB):
 
     @staticmethod
     def _init_atoms(row_atom_func: Callable,
-                    data_shape_dict: Dict[str, Tuple[int, ...]]) -> Dict[str, tables.atom]:
+                    data_shape_dict: Dict[str, Tuple[int, ...]]) -> Dict[str, tables.Atom]:
         """
         Init the atoms for all types of data. Size of the atoms is defined by the shape.
         Args:
@@ -231,7 +232,7 @@ class Database(AbstractDB):
 
     def refresh_atoms(self):
         """
-            Recreate the self._atoms using _init_atoms.
+        Recreate the self._atoms using _init_atoms.
         Returns:
             self._atoms (Dict[str, tables.atom]): Dict of atoms per data type.
         """
@@ -407,7 +408,7 @@ class TaskManager(DbHelper):
 
     def flush(self):
         """
-            Flush the h5arrays of all phases.
+        Flush the h5arrays of all phases.
         Returns:
 
         """
@@ -509,9 +510,9 @@ class WeightCollector(DbHelper):
 
     def is_count_weight(self):
         """
-            Validate Weight Collection should be performed.
+        Validate Weight Collection should be performed.
         Returns:
-            True only if the "enable_weight" field in the associated database obj is true, and class
+            True only if the "enable_weight" field in the associated database obj is true, and class \
             names are defined.
         """
         return self.database.enable_weight and self.database.classes is not None
@@ -626,9 +627,8 @@ class H5Organizer(DbHelper):
             atom (): Type of the atom for the array.
             filters (): Filter instance for the H5array
             expectedrows (): User Estimation of number of rows of the H5array.
-            group_level (): Whether data are grouped. If 0: no grouping.
-                            If 1: group by source file, using VLarray.
-
+            group_level (): Whether data are grouped. If 0: no grouping. \
+            If 1: group by source file, using VLarray.
         Returns:
             self.h5arrays
         """

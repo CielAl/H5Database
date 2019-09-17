@@ -1,0 +1,449 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>h5database.skeletal.abstract_extractor &mdash; H5Database 0.4.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> H5Database
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">H5Database</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>h5database.skeletal.abstract_extractor</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for h5database.skeletal.abstract_extractor</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">abc</span> <span class="k">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="c1"># noinspection PyProtectedMember</span>
+<span class="kn">from</span> <span class="nn">sklearn.feature_extraction.image</span> <span class="k">import</span> <span class="n">extract_patches</span>
+<span class="kn">from</span> <span class="nn">skimage.filters</span> <span class="k">import</span> <span class="n">gaussian</span><span class="p">,</span> <span class="n">laplace</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Iterable</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="k">import</span> <span class="n">mul</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">reduce</span>
+<span class="kn">import</span> <span class="nn">types</span>
+<span class="kn">from</span> <span class="nn">skimage.color</span> <span class="k">import</span> <span class="n">rgb2gray</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">h5database.database</span> <span class="k">import</span> <span class="n">DataExtractor</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ExtractCallable"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable">[docs]</a><span class="k">class</span> <span class="nc">ExtractCallable</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Callable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Superclass of all Callable that extract data (e.g. patches) from the source files.</span>
+<span class="sd">        Type order annotated in method type_order.</span>
+<span class="sd">        Override get_inputs should manually match the order of data types in patch_group</span>
+<span class="sd">        with the given type_order.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">KEY_SHAPE</span> <span class="o">=</span> <span class="s1">&#39;data_shape&#39;</span>
+<div class="viewcode-block" id="ExtractCallable.patch_numbers"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.patch_numbers">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">patch_numbers</span><span class="p">(</span><span class="n">patches</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n_dims</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Examine the number of patches, if dimensionality is specified.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            patches (): Groups of Patch data.</span>
+<span class="sd">            n_dims (): Dimensionality. Default 3.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">patches</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># row vectors</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="n">patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">patch_size_product</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">mul</span><span class="p">,</span> <span class="n">patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="n">n_dims</span><span class="p">:])</span>
+            <span class="k">if</span> <span class="n">patch_size_product</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># empty</span>
+                <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">count</span> <span class="o">=</span> <span class="n">patches</span><span class="o">.</span><span class="n">size</span> <span class="o">//</span> <span class="n">patch_size_product</span>
+        <span class="k">return</span> <span class="n">count</span></div>
+
+<div class="viewcode-block" id="ExtractCallable.validate_shape"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.validate_shape">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">validate_shape</span><span class="p">(</span><span class="n">patch_groups</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">type_order</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">data_shape</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">]):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate whether the shape of each element of the arrays in the patch_groups matches \</span>
+<span class="sd">         the definition in the dict of data_shape.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            patch_groups (): Sequence of different types of data. i.e. (data_type1_array, data_type2_array, ...) \</span>
+<span class="sd">                Assumption: leading dimension of data_typex_array is the length of the data array.</span>
+<span class="sd">            type_order ():  The order of types of data in patch_groups.</span>
+<span class="sd">            data_shape ():  Dictionary of shape of a single element in the data_array given the type.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">        Raises:</span>
+<span class="sd">            AssertionError if shape does not match</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">n_dims</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data_shape</span><span class="p">[</span><span class="n">x</span><span class="p">])</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">type_order</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;{tuple(data_shape[type_name] for type_name in type_order)}&quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;{tuple(patches.shape for patches in patch_groups)}&quot;</span><span class="p">)</span>
+        <span class="n">validation_result</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="n">num_dimension</span><span class="p">:]</span> <span class="o">==</span> <span class="n">data_shape</span><span class="p">[</span><span class="n">type_name</span><span class="p">]</span>
+                                  <span class="ow">or</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data_shape</span><span class="p">[</span><span class="n">type_name</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">patches</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                                  <span class="k">for</span> <span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">num_dimension</span><span class="p">,</span> <span class="n">type_name</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">patch_groups</span><span class="p">,</span> <span class="n">n_dims</span><span class="p">,</span> <span class="n">type_order</span><span class="p">))</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{validation_result}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">validation_result</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(),</span> <span class="n">f</span><span class="s2">&quot;Shape mismatched:&quot;</span> \
+            <span class="n">f</span><span class="s2">&quot;{list(patches.shape for patches in patch_groups)}. Expect: </span><span class="si">{data_shape}</span><span class="s2">&quot;</span></div>
+
+<div class="viewcode-block" id="ExtractCallable.extract_patch"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.extract_patch">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">extract_patch</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">patch_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">stride</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">flatten</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">image</span><span class="p">),</span> <span class="n">f</span><span class="s2">&quot;does not support scalar input:</span><span class="si">{image}</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">patch_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">patch_shape</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;image_shape, {(image.shape, patch_shape)}&#39;</span><span class="p">)</span>
+        <span class="n">insufficient_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="n">y</span> <span class="k">for</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">patch_shape</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">insufficient_size</span><span class="p">):</span>
+            <span class="n">pad_size</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                        <span class="nb">max</span><span class="p">((</span><span class="n">y</span><span class="o">-</span><span class="n">x</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">patch_shape</span><span class="p">))</span>
+
+            <span class="n">pad_size</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pad_size</span><span class="p">)</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pad_size</span><span class="p">,</span> <span class="s1">&#39;wrap&#39;</span><span class="p">)</span>
+        <span class="n">patches</span> <span class="o">=</span> <span class="n">extract_patches</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">patch_shape</span><span class="p">,</span> <span class="n">stride</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">flatten</span><span class="p">:</span>
+            <span class="n">patches</span> <span class="o">=</span> <span class="n">patches</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,)</span> <span class="o">+</span> <span class="n">patch_shape</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">patches</span></div>
+
+<div class="viewcode-block" id="ExtractCallable.get_background_by_contrast"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.get_background_by_contrast">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_background_by_contrast</span><span class="p">(</span><span class="n">img_gray</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">smooth_thresh</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.03</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A naive background/tissue detection by thresholding the mask of Gaussian-smoothed Laplacian mask.</span>
+<span class="sd">        Helper function of background_sanitize.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            img_gray (): Grayscale image.</span>
+<span class="sd">            sigma ():   Variance of the Gaussian kernel.</span>
+<span class="sd">            smooth_thresh ():   Threshold of final background mask (smaller-equal)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            background: background of images.</span>
+<span class="sd">            mask: binary mask where nonzero elements represent background region.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">img_laplace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">laplace</span><span class="p">(</span><span class="n">img_gray</span><span class="p">))</span>
+        <span class="c1"># background region has low response: smaller smooth_thresh --&gt; more strict criteria to spot background</span>
+        <span class="c1"># sigma --&gt; radius. Larger sigma --&gt; more loose. 10 is slower but more tolerant</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">gaussian</span><span class="p">(</span><span class="n">img_laplace</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">smooth_thresh</span>
+        <span class="c1"># - pixel 1 is the background part</span>
+        <span class="n">background</span> <span class="o">=</span> <span class="p">(</span><span class="n">mask</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">img_gray</span>
+        <span class="n">background</span><span class="p">[</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># background[mask_background].mean()</span>
+        <span class="k">return</span> <span class="n">background</span><span class="p">,</span> <span class="n">mask</span></div>
+
+<div class="viewcode-block" id="ExtractCallable.background_sanitize"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.background_sanitize">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">background_sanitize</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">smooth_thresh</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.03</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Remove the background pixels for tissue slides (set to 0).</span>
+<span class="sd">        Args:</span>
+<span class="sd">            image ():   original image. Either gray or RGB.</span>
+<span class="sd">            sigma ():   Radius of the Gaussian kernel.</span>
+<span class="sd">            smooth_thresh (): Threshold of background mask (smaller-equal)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            image: image with background pixels set to 0.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">img_gray</span> <span class="o">=</span> <span class="n">rgb2gray</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+        <span class="n">background</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_background_by_contrast</span><span class="p">(</span><span class="n">img_gray</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">smooth_thresh</span><span class="o">=</span><span class="n">smooth_thresh</span><span class="p">)</span>
+        <span class="n">image</span><span class="p">[</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">image</span></div>
+
+<div class="viewcode-block" id="ExtractCallable.extract"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.extract">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span><span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">type_order</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">obj</span><span class="p">:</span> <span class="n">DataExtractor</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                <span class="n">data_shape</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>\
+            <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extraction using the result of &quot;get_inputs&quot;.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            inputs ():  Prepared input array obtained from &quot;get_inputs&quot;.</span>
+<span class="sd">            type_order ():  Pre-defined type order of output data.</span>
+<span class="sd">            obj (): Associated DataExtractor object.</span>
+<span class="sd">            file ():    Path of Source file.</span>
+<span class="sd">            data_shape ():  Shape of data per type.</span>
+<span class="sd">            **kwargs ():</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ExtractCallable.validate_type_order"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.validate_type_order">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">validate_type_order</span><span class="p">(</span><span class="n">patch_types</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">type_order</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Raise AssertError if the given patch_types and type_order do not match.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            patch_types (): Given data-type of obtained patch</span>
+<span class="sd">            type_order ():  Predefined data-type for the ExtractCallable.</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">compare</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">patch_types</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">type_order</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">compare</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">f</span><span class="s1">&#39;Predefined ordered type is not identical to the patch types &#39;</span> \
+            <span class="n">f</span><span class="s1">&#39;Got:</span><span class="si">{type_order}</span><span class="s1">. Expect:</span><span class="si">{patch_types}</span><span class="s1">&#39;</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">DataExtractor</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> \
+            <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Callable Interface of ExtractCallable.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            obj (): DataExtractor object that initiate the call.</span>
+<span class="sd">            file ():    File path of the source file to extract.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            output (Tuple[Sequence[Any], Sequence[bool], Sequence[str], Any]):</span>
+<span class="sd">                    Sequence[Any]: a sequence of [data_array_type_1, data_array_type_2, ...].</span>
+<span class="sd">                    Sequence[bool]: Sequence of validation tag.</span>
+<span class="sd">                    Any: Any extra information obtained. As a placeholder for future development.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Fetch external parameters from field &quot;meta&quot; of</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">meta</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">SimpleNamespace</span><span class="p">):</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="vm">__dict__</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">meta</span>
+        <span class="n">patch_types</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">types</span>
+        <span class="c1"># Define extra parameters.</span>
+        <span class="n">patch_shape</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">KEY_SHAPE</span><span class="p">]</span>
+        <span class="c1"># Remove the KEY_SHAPE entity from the dict, as not defined in the interface of cls.extract</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">params</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">KEY_SHAPE</span><span class="p">}</span>
+        <span class="c1"># Examine the type order.</span>
+        <span class="n">type_order</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">type_order</span><span class="p">()</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">validate_type_order</span><span class="p">(</span><span class="n">patch_types</span><span class="p">,</span> <span class="n">type_order</span><span class="p">)</span>
+        <span class="c1"># Prepare the input by the given type order.</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">type_order</span><span class="p">,</span> <span class="n">patch_shape</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="c1"># Extract the ordered output by the ordered input.</span>
+        <span class="n">output</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> \
+            <span class="bp">cls</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">type_order</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">patch_shape</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">out_data</span><span class="p">,</span> <span class="n">is_valid</span><span class="p">,</span> <span class="n">type_order</span><span class="p">,</span> <span class="n">extra_info</span> <span class="o">=</span> <span class="n">output</span>
+
+        <span class="c1"># Examine if the # of types in the output array size matches the # of pre-defined types.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">out_data</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">patch_types</span><span class="p">),</span> <span class="n">f</span><span class="s2">&quot;Number of returned data type mismatched&quot;</span> \
+            <span class="n">f</span><span class="s2">&quot;Got:{len(out_data)}vs. Expect:{len(patch_types)}&quot;</span>
+        <span class="c1"># logging.debug(f&quot;{type_order}&quot;)</span>
+        <span class="c1"># Validate the output shape.</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">validate_shape</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">type_order</span><span class="p">,</span> <span class="n">patch_shape</span><span class="p">)</span>
+
+        <span class="c1"># Calculate the size of each data array</span>
+        <span class="n">num_patch_group</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">patch_numbers</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">n_dims</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">patch_shape</span><span class="p">[</span><span class="n">type_name</span><span class="p">]))</span>
+                                <span class="k">for</span> <span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">type_name</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">type_order</span><span class="p">))</span>
+        <span class="c1"># validate that the each patch array has the same number of data points.</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">num_patch_group</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">(),</span> <span class="n">f</span><span class="s2">&quot;Number of patches across types mismatched. &quot;</span> \
+            <span class="n">f</span><span class="s2">&quot;Got:</span><span class="si">{num_patch_group}</span><span class="s2">, Types:</span><span class="si">{type_order}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">output</span>
+
+<div class="viewcode-block" id="ExtractCallable.type_order"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.type_order">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">type_order</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Predefined order of the data types.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ExtractCallable.label_key"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.label_key">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">label_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The attribute name of the &quot;label&quot; (output, ground truth, etc.) entity. \</span>
+<span class="sd">        Must be defined in type_order as well.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            key (str): The attribute name of the label.</span>
+<span class="sd">        Raises:</span>
+<span class="sd">            AssertionError, if not defined in type_order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_label_key_str</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">type_order</span><span class="p">(),</span> <span class="n">f</span><span class="s1">&#39;Key of label not defined in type order&#39;</span> \
+            <span class="n">f</span><span class="s1">&#39;</span><span class="si">{key}</span><span class="s1">. Expected from {cls.type_order()}&#39;</span>
+        <span class="k">return</span> <span class="n">key</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_label_key_str</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+<div class="viewcode-block" id="ExtractCallable.get_inputs"><a class="viewcode-back" href="../../../h5database.skeletal.html#h5database.skeletal.abstract_extractor.ExtractCallable.get_inputs">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_inputs</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">DataExtractor</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">patch_types</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">data_shape</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
+                   <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pre-process the input for the extraction. Method &quot;extract&quot; will be performed on the prepared input.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            obj (): Associated DataExtractor obj.</span>
+<span class="sd">            file ():    Path of the source file.</span>
+<span class="sd">            patch_types (): Data type names of all target inputs.</span>
+<span class="sd">            data_shape ():  Shapes of data.</span>
+<span class="sd">            **kwargs ():    Keyword arguments.</span>
+<span class="sd">        Keyword Args:</span>
+<span class="sd">            Given by obj.meta. Implemented by derived classes.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Input patches group.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Yf Zh
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
