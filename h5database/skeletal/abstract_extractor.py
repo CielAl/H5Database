@@ -9,6 +9,8 @@ import types
 from skimage.color import rgb2gray
 import numpy as np
 from h5database.database import DataExtractor
+import os
+from PIL import Image
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -69,6 +71,10 @@ class ExtractCallable(ABC, Callable):
             f"{list(patches.shape for patches in patch_groups)}. Expect: {data_shape}"
 
     @staticmethod
+    def flatten_patch(patches: np.ndarray, patch_shape: Tuple[int, ...]):
+        return patches.reshape((-1,) + patch_shape)
+
+    @staticmethod
     def extract_patch(image: np.ndarray, patch_shape: Tuple[int, ...], stride: int, flatten: bool = True):
         assert not np.isscalar(image), f"does not support scalar input:{image}"
         if len(patch_shape) == 0:
@@ -84,7 +90,7 @@ class ExtractCallable(ABC, Callable):
             image = np.pad(image, pad_size, 'wrap')
         patches = extract_patches(image, patch_shape, stride)
         if flatten:
-            patches = patches.reshape((-1,) + patch_shape)
+            patches = ExtractCallable.flatten_patch(patches, patch_shape)
         return patches
 
     @staticmethod
@@ -262,3 +268,37 @@ class ExtractCallable(ABC, Callable):
             Input patches group.
         """
         ...
+
+    @staticmethod
+    def get_mask_name(img_full_path: str, mask_dir: str, suffix: str = '_mask', extension: str = 'png'):
+        """
+        Legacy codes. Map the source image file name to the mask file name.
+        Args:
+            img_full_path ():
+            mask_dir ():
+            suffix ():
+            extension ():
+
+        Returns:
+
+        """
+        im_base_name = os.path.basename(img_full_path)
+        img_name_file_part = os.path.splitext(im_base_name)[0]
+        mask_name = f"{img_name_file_part}{suffix}.{extension}"
+        full_mask_name = os.path.join(mask_dir, mask_name)
+        return full_mask_name
+
+    @staticmethod
+    def extract_centroid(image: np.ndarray, centroid_rc: np.ndarray, size_rc: np.ndarray):
+        pil_im = Image.fromarray(image)
+        left_upper_rc = centroid_rc - size_rc/2
+        right_lower_rc = centroid_rc + size_rc/2
+        window_array = np.hstack([
+                    left_upper_rc[:, [1,0]]
+                    , right_lower_rc[:, [1,0]]
+         ])
+        patches = []
+        for window in window_array:
+            patch = np.asarray(pil_im.crop(window))
+            patches.append(patch)
+        return np.asarray(patches)

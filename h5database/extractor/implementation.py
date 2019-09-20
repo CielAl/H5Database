@@ -10,7 +10,7 @@ import os
 from h5database.skeletal.abstract_extractor import ExtractCallable
 import logging
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.NOTSET)
 __all__ = ['ExtSuperResolution', 'ExtTissueByMask']
 
 
@@ -59,7 +59,7 @@ class ExtSuperResolution(ExtractCallable):
 
     # override
     @staticmethod
-    def extract(inputs: Tuple[object, ...], type_order: Sequence[str], obj: DataExtractor, file: str,
+    def extract(inputs: Tuple[np.ndarray, np.ndarray], type_order: Sequence[str], obj: DataExtractor, file: str,
                 data_shape: Dict[str, Tuple[int, ...]], **kwargs) \
             -> Tuple[Tuple, np.ndarray, Sequence[str], Any]:
         """
@@ -102,25 +102,6 @@ class ExtTissueByMask(ExtractCallable):
         todo: Refactor and generalize it for data without mask
     """
 
-    @staticmethod
-    def get_mask_name(img_full_path: str, mask_dir: str, suffix: str = '_mask', extension: str = 'png'):
-        """
-        Legacy codes. Map the source image file name to the mask file name.
-        Args:
-            img_full_path ():
-            mask_dir ():
-            suffix ():
-            extension ():
-
-        Returns:
-
-        """
-        im_base_name = os.path.basename(img_full_path)
-        img_name_file_part = os.path.splitext(im_base_name)[0]
-        mask_name = f"{img_name_file_part}{suffix}.{extension}"
-        full_mask_name = os.path.join(mask_dir, mask_name)
-        return full_mask_name
-
     # override
     @staticmethod
     def type_order() -> Sequence[str]:
@@ -128,7 +109,15 @@ class ExtTissueByMask(ExtractCallable):
         Returns:
             Annotation of designed data type order.
         """
-        return ['img', 'mask', 'label']
+        return ['img', 'mask', 'label', 'row', 'col']
+
+    @staticmethod
+    def mask_key() -> str:
+        return 'mask'
+
+    @staticmethod
+    def img_key() -> str:
+        return 'img'
 
     @staticmethod
     def _label_key_str() -> str:
@@ -156,6 +145,7 @@ class ExtTissueByMask(ExtractCallable):
 
         """
         resize = kwargs['resize']
+        # noinspection PyUnresolvedReferences
         interp = kwargs.get('interp', PIL.Image.NONE)
         suffix = kwargs.get('mask_suffix', '_mask')
         extension = kwargs.get('mask_ext', 'png')
@@ -167,7 +157,7 @@ class ExtTissueByMask(ExtractCallable):
                                  interpolation=interp)
         # read and resize the corresponding masks
         mask_name = ExtTissueByMask.get_mask_name(file, mask_dir, suffix=suffix, extension=extension)
-        logging.debug(mask_name)
+        # logging.debug(mask_name)
         mask_whole = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)
         mask_whole = cv2.threshold(mask_whole, 1, 255, cv2.THRESH_BINARY)[1]
         mask_whole = cv2.resize(mask_whole, (0, 0), fx=resize, fy=resize,
@@ -184,9 +174,24 @@ class ExtTissueByMask(ExtractCallable):
              ][0]
         return image_whole, mask_whole, class_id
 
+    @staticmethod
+    def valid_coordinate_rc(valid_tag: np.ndarray, dispose_flag: bool) -> Tuple[np.ndarray, np.ndarray]:
+        valid_tag = np.atleast_2d(valid_tag)
+        if dispose_flag:
+            row_ind, col_ind = np.where(valid_tag)
+        else:
+            row_ind, col_ind = np.where(np.ones_like(valid_tag))
+        return row_ind, col_ind
+
+    @staticmethod
+    def flatten_helper(patches, patch_shape, flatten_flag: bool):
+        if flatten_flag:
+            patches = ExtractCallable.flatten_patch(patches, patch_shape)
+        return patches
+
     # override
     @staticmethod
-    def extract(inputs: Tuple[np.ndarray, Sequence, np.ndarray], type_order: Sequence[str], obj: DataExtractor,
+    def extract(inputs: Tuple[np.ndarray, np.ndarray, Any], type_order: Sequence[str], obj: DataExtractor,
                 file: str, data_shape: Dict[str, Tuple[int, ...]], **kwargs)\
             -> Tuple[Tuple[object, ...], Sequence[bool], Sequence[str], Any]:
         """
@@ -222,7 +227,7 @@ class ExtTissueByMask(ExtractCallable):
         # extract and order the patches
         patch_out = tuple(
                             ExtractCallable.extract_patch(groups, data_shape[type_key], stride_size,
-                                                          flatten=flatten)
+                                                          flatten=False)
                             for groups, type_key in zip(inputs, type_order)
                             if not np.isscalar(groups)
                              )
@@ -238,28 +243,30 @@ class ExtTissueByMask(ExtractCallable):
         # excluded in the mean calculation
         mask_axis = tuple(
                             range(
-                                -1*len(data_shape[type_order[-2]]),
+                                -1*len(data_shape[ExtTissueByMask.mask_key()]),
                                 0)
                         )
+
         assert len(mask_axis) > 0
         # Tissue screening by mask region.
         valid_patch = patches_mask.mean(axis=mask_axis)
         valid_tag = valid_patch >= thresh
-
         # whether flatten and dispose the output.
         # Assume
-        if flatten and dispose:
-            logging.debug(valid_tag.shape)
-            logging.debug(labels.shape)
+        row_ind, col_ind = ExtTissueByMask.valid_coordinate_rc(valid_tag, dispose)
+        patches_im = ExtTissueByMask.flatten_helper(patches_im, data_shape[ExtTissueByMask.img_key()], flatten)
+        patches_mask = ExtTissueByMask.flatten_helper(patches_mask, data_shape[ExtTissueByMask.mask_key()], flatten)
+        if not flatten or not dispose:
+            patches_im[valid_tag, :] = 0
+        else:
+            # todo flatten
+            valid_tag = ExtTissueByMask.flatten_helper(valid_tag, (1, 1), True).squeeze()
             patches_im = patches_im[valid_tag, :]
             patches_mask = patches_mask[valid_tag, :]
             labels = labels[0:valid_tag.sum()]
-        else:
-            # if no flattening, no disposing, or both, then simply set 0.
-            patches_im[valid_tag, :] = 0
-        extra_info = None
 
         # validate the length of image patch array and mask patch array
         assert patches_im.shape[0] == patches_mask.shape[0] and patches_im.shape[0] == len(labels), f"Length mismatch" \
             f"{patches_im.shape[0]}, {patches_mask.shape[0]}, {len(labels)}"
-        return (patches_im, patches_mask, labels), valid_tag, type_order, extra_info
+        extra_info = None
+        return (patches_im, patches_mask, labels, row_ind, col_ind), valid_tag, type_order, extra_info
