@@ -10,7 +10,8 @@ import os
 from h5database.skeletal.abstract_extractor import ExtractCallable
 import logging
 
-logging.basicConfig(level=logging.NOTSET)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 __all__ = ['ExtSuperResolution', 'ExtTissueByMask']
 
 
@@ -157,7 +158,7 @@ class ExtTissueByMask(ExtractCallable):
                                  interpolation=interp)
         # read and resize the corresponding masks
         mask_name = ExtTissueByMask.get_mask_name(file, mask_dir, suffix=suffix, extension=extension)
-        # logging.debug(mask_name)
+        # logger.debug(mask_name)
         mask_whole = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)
         mask_whole = cv2.threshold(mask_whole, 1, 255, cv2.THRESH_BINARY)[1]
         mask_whole = cv2.resize(mask_whole, (0, 0), fx=resize, fy=resize,
@@ -184,10 +185,10 @@ class ExtTissueByMask(ExtractCallable):
         return row_ind, col_ind
 
     @staticmethod
-    def flatten_helper(patches, patch_shape, flatten_flag: bool):
+    def flatten_helper(patches, patch_shape, flatten_flag: bool, squeeze_dim: Tuple[int, ...] = None):
         if flatten_flag:
-            patches = ExtractCallable.flatten_patch(patches, patch_shape)
-        return patches
+            patches = ExtractCallable.flatten_patch(patches, patch_shape, squeeze_dim=squeeze_dim)
+        return np.atleast_1d(patches)
 
     # override
     @staticmethod
@@ -222,7 +223,7 @@ class ExtTissueByMask(ExtractCallable):
         flatten = kwargs.get('flatten', True)
         dispose = kwargs.get('dispose', True)
         thresh = kwargs.get('tissue_area_thresh', 0)  # high pass
-        logging.debug(f'thresh{thresh}')
+        # logger.debug(f'thresh{thresh}')
 
         # extract and order the patches
         patch_out = tuple(
@@ -254,13 +255,19 @@ class ExtTissueByMask(ExtractCallable):
         # whether flatten and dispose the output.
         # Assume
         row_ind, col_ind = ExtTissueByMask.valid_coordinate_rc(valid_tag, dispose)
+        logger.debug(f"before flatten:{patches_im.shape}, {flatten}, {data_shape[ExtTissueByMask.img_key()]}")
         patches_im = ExtTissueByMask.flatten_helper(patches_im, data_shape[ExtTissueByMask.img_key()], flatten)
         patches_mask = ExtTissueByMask.flatten_helper(patches_mask, data_shape[ExtTissueByMask.mask_key()], flatten)
+        logger.debug(f"after flatten: {patches_im.shape}")
+
         if not flatten or not dispose:
             patches_im[valid_tag, :] = 0
         else:
             # todo flatten
-            valid_tag = ExtTissueByMask.flatten_helper(valid_tag, (1, 1), True).squeeze()
+            # shape of item in valid_tag is scalar --> (), otherwise singleton axis emerges, and makes it
+            # complicated when size of valid_tag is 1.
+            valid_tag = ExtTissueByMask.flatten_helper(valid_tag, (), True)
+
             patches_im = patches_im[valid_tag, :]
             patches_mask = patches_mask[valid_tag, :]
             labels = labels[0:valid_tag.sum()]
@@ -269,4 +276,5 @@ class ExtTissueByMask(ExtractCallable):
         assert patches_im.shape[0] == patches_mask.shape[0] and patches_im.shape[0] == len(labels), f"Length mismatch" \
             f"{patches_im.shape[0]}, {patches_mask.shape[0]}, {len(labels)}"
         extra_info = None
+        logger.debug(f"final flatten: {patches_im.shape}")
         return (patches_im, patches_mask, labels, row_ind, col_ind), valid_tag, type_order, extra_info

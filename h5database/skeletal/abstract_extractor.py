@@ -12,8 +12,8 @@ from h5database.database import DataExtractor
 import os
 from PIL import Image
 import logging
-
-logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.WARNING)
 
 
 class ExtractCallable(ABC, Callable):
@@ -61,25 +61,28 @@ class ExtractCallable(ABC, Callable):
             AssertionError if shape does not match
         """
         n_dims = tuple(len(data_shape[x]) for x in type_order)
-        logging.debug(f"{tuple(data_shape[type_name] for type_name in type_order)}")
-        logging.debug(f"{tuple(patches.shape for patches in patch_groups)}")
+        logger.debug(f"{tuple(data_shape[type_name] for type_name in type_order)}")
+        logger.debug(f"{tuple(patches.shape for patches in patch_groups)}")
         validation_result = tuple(patches.shape[-num_dimension:] == data_shape[type_name]
                                   or (len(data_shape[type_name]) < 1 and patches.ndim == 1)
                                   for (patches, num_dimension, type_name) in zip(patch_groups, n_dims, type_order))
-        logging.debug(f"{validation_result}")
+        logger.debug(f"{validation_result}")
         assert np.asarray(validation_result).all(), f"Shape mismatched:" \
             f"{list(patches.shape for patches in patch_groups)}. Expect: {data_shape}"
 
     @staticmethod
-    def flatten_patch(patches: np.ndarray, patch_shape: Tuple[int, ...]):
-        return patches.reshape((-1,) + patch_shape)
+    def flatten_patch(patches: np.ndarray, patch_shape: Tuple[int, ...], squeeze_dim: Tuple[int, ...] = None):
+        flatten: np.ndarray = np.atleast_1d(patches.reshape((-1,) + patch_shape))
+        if squeeze_dim is not None:
+            flatten = flatten.squeeze(axis=squeeze_dim)
+        return flatten
 
     @staticmethod
     def extract_patch(image: np.ndarray, patch_shape: Tuple[int, ...], stride: int, flatten: bool = True):
         assert not np.isscalar(image), f"does not support scalar input:{image}"
         if len(patch_shape) == 0:
             patch_shape = 1
-        logging.debug(f'image_shape, {(image.shape, patch_shape)}')
+        logger.debug(f'image_shape, {(image.shape, patch_shape)}')
         insufficient_size = (x < y for (x, y) in zip(image.shape, patch_shape))
         if any(insufficient_size):
             pad_size = tuple(
@@ -202,11 +205,11 @@ class ExtractCallable(ABC, Callable):
         output: Tuple[Sequence[Any], Sequence[bool], Sequence[str], object] = \
             cls.extract(inputs, type_order, obj, file, patch_shape, **params)
         out_data, is_valid, type_order, extra_info = output
-
+        is_valid = np.atleast_1d(is_valid)
         # Examine if the # of types in the output array size matches the # of pre-defined types.
         assert len(out_data) == len(patch_types), f"Number of returned data type mismatched" \
             f"Got:{len(out_data)}vs. Expect:{len(patch_types)}"
-        # logging.debug(f"{type_order}")
+        # logger.debug(f"{type_order}")
         # Validate the output shape.
         cls.validate_shape(out_data, type_order, patch_shape)
 
@@ -216,7 +219,7 @@ class ExtractCallable(ABC, Callable):
         # validate that the each patch array has the same number of data points.
         assert (~np.diff(num_patch_group)).all(), f"Number of patches across types mismatched. " \
             f"Got:{num_patch_group}, Types:{type_order}"
-        return output
+        return out_data, is_valid, type_order, extra_info
 
     @staticmethod
     @abstractmethod

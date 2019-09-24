@@ -133,7 +133,7 @@ class AbstractDB(ABC):
         Returns:
 
         """
-        return self.splits.keys()
+        return list(self.splits.keys())
 
     @LazyProperty
     @abstractmethod

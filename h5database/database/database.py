@@ -4,7 +4,7 @@
 import inspect
 import os
 # patch extraction and dataset split: Use 1 pair of train-validation to due to limitation of time
-import PIL
+from PIL import Image as PilImage
 import numpy as np
 import tables
 from tqdm import tqdm
@@ -12,9 +12,12 @@ from tqdm import tqdm
 from .abstract_database import AbstractDB
 import glob
 from h5database.common import Split
-from typing import Dict, Tuple, Sequence, Callable, Any
+from typing import Dict, Tuple, Sequence, Callable, Any, Union
 from lazy_property import LazyProperty
 from h5database.common import get_path_limit
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.DEBUG)
 
 
 class Database(AbstractDB):
@@ -66,8 +69,8 @@ class Database(AbstractDB):
         Returns:
 
         """
-        if (not self.is_instantiated(type(self).train_name())) or (not self.is_instantiated(type(self).val_name())) \
-                or force_overwrite:
+        has_uninitiated_phase = any([not self.is_instantiated(phase) for phase in self.phases])
+        if has_uninitiated_phase or force_overwrite:
             self._write_data()
         else:
             print("DB exists under the export dir")
@@ -93,7 +96,7 @@ class Database(AbstractDB):
             images, labels(ground truth)
     '''
 
-    def __getitem__(self, phase_index_tuple: Tuple[str, int]):
+    def __getitem__(self, phase_index_tuple: Union[Tuple[str, int], int]):
         """
         Enables subscription by phase and index: Database[phase, index]
         Args:
@@ -102,7 +105,13 @@ class Database(AbstractDB):
         Returns:
             All types of data given the index.
         """
-        phase, index = phase_index_tuple
+        logger.debug(type(phase_index_tuple))
+        if isinstance(phase_index_tuple, Tuple):
+            phase, index = phase_index_tuple
+        else:
+            phase = self.phases[0]
+            index = phase_index_tuple
+            logger.warning(f"integer index. Use 'train' as the default phase.")
         with tables.open_file(self.generate_table_name(phase)[0], 'r') as pytable:
             # image = getattr(pytable.root, self.types[0])[index, ]
             # label = getattr(pytable.root, self.types[1])[index, ]
@@ -187,7 +196,7 @@ class Database(AbstractDB):
         if shape_dict is not None:
             type_names = list(shape_dict.keys())
         else:
-            phases = type(self).train_name(), type(self).val_name()
+            phases = AbstractDB.train_name(), AbstractDB.val_name()
             type_names_list = []
             for phase in phases:
                 with tables.open_file(self.generate_table_name(phase)[0], 'r') as pytable:
@@ -209,7 +218,7 @@ class Database(AbstractDB):
             splits (Dict[str, np.ndarray]): File split (specified by file_id in the file_list) per phase.
         """
         splits = dict()
-        splits[type(self).train_name()], splits[type(self).val_name()] = \
+        splits[AbstractDB.train_name()], splits[AbstractDB.val_name()] = \
             next(Split.k_fold_split(self.num_split, shuffle=self.shuffle, file_list=self.file_list,
                                     stratified_labels=stratified_labels))
         return splits
@@ -331,7 +340,6 @@ class TaskManager(DbHelper):
             self.hdf5_organizer.h5arrays[phase]['types'].append(self.types)
             self.hdf5_organizer.h5arrays[phase]['file_list'].append(self.database.file_list)
 
-
     def _create_h5array_by_types(self, phase, filters):
         """
         Create H5arrays given phase.
@@ -371,9 +379,10 @@ class TaskManager(DbHelper):
         Returns:
 
         """
-        for file_id in tqdm(self.database.splits[phase]):
+        for idx, file_id in enumerate(tqdm(self.database.splits[phase])):
             file = self.database.file_list[file_id]
             patches, valid_tag, extra_info = self.__fetch_data(file)
+            valid_tag = np.atleast_1d(valid_tag)
             if any(list(valid_tag)) or self.database.write_invalid:
                 self.hdf5_organizer.write_data_to_array(phase, patches, self.data_size)
                 self.weight_writer.weight_accumulate(file, self.types, patches, extra_info)
@@ -456,7 +465,7 @@ class DataExtractor(DbHelper):
         """
         meta['stride_size'] = meta.get('stride_size', 128)
         meta['tissue_area_thresh'] = meta.get('tissue_area_thresh', 0.95)
-        meta['interp'] = meta.get('interp', PIL.Image.NONE)
+        meta['interp'] = meta.get('interp', PilImage.NONE)
         meta['resize'] = meta.get('resize', 1)
         # meta = SimpleNamespace(**meta)
         return meta
@@ -676,6 +685,7 @@ class H5Organizer(DbHelper):
     # todo
     def write_data_to_array(self, phase, patches_dict, data_size=None):
         for type_name in self.types:
+            logger.debug(patches_dict[type_name].shape)
             self.h5arrays[phase][type_name].append(patches_dict[type_name])
             # write size of data into h5 - todo
             if data_size is not None:
