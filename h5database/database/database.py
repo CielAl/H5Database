@@ -556,10 +556,12 @@ class WeightCollector(DbHelper):
             totals = None
         return totals
 
-    def write_class_weight_to_db(self, hdf5_organizer, phase):
+    def write_class_weight_to_db(self, hdf5_organizer, phase, renew_when_done=True):
         if self.is_count_weight():
             n_pixels = hdf5_organizer.build_meta_data(phase, 'class_sizes', self.totals)
             n_pixels[:] = self.totals
+            if renew_when_done:
+                self._totals = self._new_weight_storage()
 
 
 class H5Organizer(DbHelper):
