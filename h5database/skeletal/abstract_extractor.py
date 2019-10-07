@@ -297,8 +297,8 @@ class ExtractCallable(ABC, Callable):
         left_upper_rc = centroid_rc - size_rc/2
         right_lower_rc = centroid_rc + size_rc/2
         window_array = np.hstack([
-                    left_upper_rc[:, [1,0]]
-                    , right_lower_rc[:, [1,0]]
+                    left_upper_rc[:, [1, 0]]
+                    , right_lower_rc[:, [1, 0]]
          ])
         patches = []
         for window in window_array:
