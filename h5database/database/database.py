@@ -17,7 +17,7 @@ from lazy_property import LazyProperty
 from h5database.common import get_path_limit
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.DEBUG)
+logger.setLevel(level=logging.CRITICAL)
 
 
 class Database(AbstractDB):
@@ -162,13 +162,13 @@ class Database(AbstractDB):
         """
         assert (sorted(list(data_shape.keys())) == sorted(self.types))
 
-    def get_files(self) -> Sequence[str]:
+    def get_files(self, file_dir) -> Sequence[str]:
         """
         Default behavior getting the source files: get the list of files matching the pattern under the file_dir.
         Returns:
             files (Sequence[str]): Full paths of all selected source files.
         """
-        file_pattern = os.path.join(self.file_dir, self.pattern)
+        file_pattern = os.path.join(file_dir, self.pattern)
         files = glob.glob(file_pattern)
         return files
 

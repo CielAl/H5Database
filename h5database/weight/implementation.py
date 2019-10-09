@@ -16,6 +16,7 @@ class WeightFile(WeightCounterCallable):
         label_key: str = collector.extractor.extract_callable.label_key()
         label = patch_group[label_key]
         basename = os.path.basename(file)
+        # todo seems to be redundant
         class_list = [idx for idx in range(len(collector.database.classes)) if
                       re.search(str(collector.database.classes[idx]), basename, re.IGNORECASE)]
         class_id = class_list[0]

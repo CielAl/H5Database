@@ -65,7 +65,6 @@ class AbstractDB(ABC):
         Returns:
 
         """
-        self.file_dir: str = kwargs['file_dir']
         self.data_shape: Dict[str, Tuple[int, ...]] = kwargs['data_shape']
         self._types = self.parse_types(shape_dict=self.data_shape)
         self._validate_shape_key(self.data_shape)
@@ -81,7 +80,14 @@ class AbstractDB(ABC):
         self.weight_counter_callable = kwargs.get('weight_counter', None)
         self.enable_weight: bool = kwargs.get('class_weight', False)
         self.classes: Sequence[str] = kwargs.get('class_names', None)
-        self.file_list: Sequence[str] = kwargs.get('file_list', self.get_files())
+
+        self.file_list: Sequence[str] = kwargs.get('file_list')
+        if self.file_list is None:
+            # files.
+            default_file_dir: str = kwargs.get('file_dir')
+            assert default_file_dir is not None
+            self.file_list = self.get_files(default_file_dir)
+
         self.splits: Dict[str, Sequence[int]] = kwargs.get('split', self.init_split())
         # todo coordinate can be inserted into data_shape, and implemented by Extractor
         # for Database itself, meta is not handled until passed to DataaExtractor
@@ -145,7 +151,7 @@ class AbstractDB(ABC):
         ...
 
     @abstractmethod
-    def get_files(self) -> Sequence[str]:
+    def get_files(self, *args, **kwargs) -> Sequence[str]:
         """
         Behavior to extract the source file list.
         Returns:
