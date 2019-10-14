@@ -72,7 +72,7 @@ class AbstractDB(ABC):
         self.extract_callable = kwargs['extractor']
         # refactor later
         self.write_invalid: bool = kwargs.get('write_invalid', False)
-        self.chunk_width: int = kwargs.get('chunk_width', 4)
+        self.chunk_width: int = kwargs.get('chunk_width', 1)
         self.num_split: int = kwargs.get('num_fold', 10)
         self.shuffle: bool = kwargs.get('shuffle', True)
         self.pattern: str = kwargs.get('pattern', '*.png')
@@ -93,7 +93,7 @@ class AbstractDB(ABC):
         # for Database itself, meta is not handled until passed to DataaExtractor
         self.meta: Dict = kwargs.get('meta', {})
         self.row_atom_func: Callable = kwargs.get('row_atom_func', tables.UInt8Atom)
-        self.comp_level: int = kwargs.get('comp_level', 3)
+        self.comp_level: int = kwargs.get('comp_level', 0)
         self.refresh_atoms()
 
     @abstractmethod
