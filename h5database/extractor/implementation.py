@@ -250,7 +250,9 @@ class ExtTissueByMask(ExtractCallable):
 
         assert len(mask_axis) > 0
         # Tissue screening by mask region.
-        valid_patch = patches_mask.mean(axis=mask_axis)
+        # patches_mask may be un-normalized
+        valid_patch = (patches_mask > 0).mean(axis=mask_axis)
+
         valid_tag = valid_patch >= thresh
         # whether flatten and dispose the output.
         # Assume

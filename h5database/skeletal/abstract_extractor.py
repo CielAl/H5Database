@@ -304,4 +304,5 @@ class ExtractCallable(ABC, Callable):
         for window in window_array:
             patch = np.asarray(pil_im.crop(window))
             patches.append(patch)
+        # if use np.asarray(list of ndarray), a new leading dimension is guaranteed.
         return np.asarray(patches)
